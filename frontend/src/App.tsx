@@ -279,7 +279,6 @@ function App() {
   const [isFileManageModalOpen, setFileManageModalOpen] = useState(false);
   const [isShareModalOpen, setShareModalOpen] = useState(false);
   const [isProjectsOpen, setProjectsOpen] = useState(true);
-  const [isIndexOpen, setIndexOpen] = useState(true);
   const [isMembersOpen, setMembersOpen] = useState(true);
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
@@ -299,10 +298,7 @@ function App() {
     isProjectsOpen && !isMembersOpen && "lg:grid-cols-[300px_minmax(360px,1fr)_72px]",
     !isProjectsOpen && !isMembersOpen && "lg:grid-cols-[72px_minmax(360px,1fr)_72px]",
   );
-  const contentGridClass = cn(
-    "mt-4 grid gap-4",
-    isIndexOpen ? "xl:grid-cols-[320px_minmax(0,1fr)]" : "xl:grid-cols-[64px_minmax(0,1fr)]",
-  );
+  const contentGridClass = "mt-4 grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]";
 
   useEffect(() => {
     if (!sharedToken) {
@@ -1120,79 +1116,58 @@ function App() {
           </div>
 
           <div className={contentGridClass}>
-            <div
-              className={cn(
-                "rounded-md border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900",
-                isIndexOpen ? "p-4" : "p-2",
-              )}
-            >
-              {isIndexOpen ? (
-                <>
-                  <div className="flex items-center justify-between gap-3">
-                    <SectionTitle icon={Folder} title="Index" />
-                    <div className="flex items-center gap-1">
-                      {selectedFolder && (
-                        <Button variant="ghost" size="xs" type="button" onClick={() => setSelectedFolderId(null)}>
-                          Room level
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="icon-sm" type="button" onClick={() => setIndexOpen(false)} title="Collapse index">
-                        <PanelLeftClose className="size-4" />
-                      </Button>
+            <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center justify-between gap-3">
+                <SectionTitle icon={Folder} title="Index" />
+                {selectedFolder && (
+                  <Button variant="ghost" size="xs" type="button" onClick={() => setSelectedFolderId(null)}>
+                    Room level
+                  </Button>
+                )}
+              </div>
+              {canManage && selectedRoom && (
+                <div className="mt-4 rounded-md border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/50">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">Create folder</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {selectedFolder ? `Inside ${selectedFolder.name}` : "At room level"}
+                      </p>
                     </div>
+                    <FolderPlus className="mt-0.5 size-4 text-slate-400 dark:text-slate-500" />
                   </div>
-                  {canManage && selectedRoom && (
-                    <div className="mt-4 rounded-md border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/50">
-                      <div className="mb-3 flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold">Create folder</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            {selectedFolder ? `Inside ${selectedFolder.name}` : "At room level"}
-                          </p>
-                        </div>
-                        <FolderPlus className="mt-0.5 size-4 text-slate-400 dark:text-slate-500" />
-                      </div>
-                      <form onSubmit={createFolder} className="space-y-2">
-                        <Field
-                          label={selectedFolder ? "New child folder" : "New room-level folder"}
-                          value={folderName}
-                          onChange={setFolderName}
-                          compact
-                        />
-                        <Button className="w-full" size="sm" type="submit">
-                          <FolderPlus className="size-4" />
-                          Add folder
-                        </Button>
-                      </form>
-                    </div>
-                  )}
-                  <div className="mt-4 space-y-1">
-                    {folders.length ? (
-                      folders.map((folder) => (
-                        <FolderTree
-                          key={folder.id}
-                          canManage={canManage}
-                          folder={folder}
-                          level={0}
-                          selectedFolderId={selectedFolderId}
-                          onDelete={deleteFolder}
-                          onRename={renameFolder}
-                          onSelect={setSelectedFolderId}
-                        />
-                      ))
-                    ) : (
-                      <EmptyState text="No folders yet" />
-                    )}
-                  </div>
-                </>
-              ) : (
-                <CollapsedRail
-                  icon={Folder}
-                  label="Index"
-                  meta={selectedFolder?.name ?? "Room level"}
-                  onExpand={() => setIndexOpen(true)}
-                />
+                  <form onSubmit={createFolder} className="space-y-2">
+                    <Field
+                      label={selectedFolder ? "New child folder" : "New room-level folder"}
+                      value={folderName}
+                      onChange={setFolderName}
+                      compact
+                    />
+                    <Button className="w-full" size="sm" type="submit">
+                      <FolderPlus className="size-4" />
+                      Add folder
+                    </Button>
+                  </form>
+                </div>
               )}
+              <div className="mt-4 space-y-1">
+                {folders.length ? (
+                  folders.map((folder) => (
+                    <FolderTree
+                      key={folder.id}
+                      canManage={canManage}
+                      folder={folder}
+                      level={0}
+                      selectedFolderId={selectedFolderId}
+                      onDelete={deleteFolder}
+                      onRename={renameFolder}
+                      onSelect={setSelectedFolderId}
+                    />
+                  ))
+                ) : (
+                  <EmptyState text="No folders yet" />
+                )}
+              </div>
             </div>
 
             <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -1842,10 +1817,16 @@ function SelectControl<TValue extends string>({
     }));
   const selectedOption = options.find((option) => option.value === value);
   const emptyValue = "__empty_select_value__";
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
 
   return (
     <SelectPrimitive.Root
       value={value || emptyValue}
+      onOpenChange={(isOpen) => {
+        if (isOpen) {
+          setPortalContainer(document.querySelector("dialog[open]") ?? document.body);
+        }
+      }}
       onValueChange={(nextValue) => onChange((nextValue === emptyValue ? "" : nextValue) as TValue)}
     >
       <SelectPrimitive.Trigger
@@ -1861,9 +1842,9 @@ function SelectControl<TValue extends string>({
           <ChevronsUpDown className={cn("shrink-0 text-slate-400 dark:text-slate-500", compact ? "size-3.5" : "size-4")} />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
-      <SelectPrimitive.Portal>
+      <SelectPrimitive.Portal container={portalContainer ?? undefined}>
         <SelectPrimitive.Content
-          className="z-50 max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border border-slate-200 bg-white p-1 text-slate-950 shadow-xl data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50"
+          className="z-[100000] max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border border-slate-200 bg-white p-1 text-slate-950 shadow-xl data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50"
           position="popper"
         >
           <SelectPrimitive.ScrollUpButton className="flex h-6 items-center justify-center text-slate-400">
@@ -2049,7 +2030,7 @@ function Modal({
       ref={dialogRef}
       aria-labelledby={`${title.replace(/\s+/g, "-").toLowerCase()}-title`}
       className={cn(
-        "m-auto max-h-[86vh] overflow-hidden rounded-md border border-slate-200 bg-white p-0 text-slate-950 shadow-2xl backdrop:bg-slate-950/45 backdrop:backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50",
+        "m-auto max-h-[86vh] overflow-visible rounded-md border border-slate-200 bg-white p-0 text-slate-950 shadow-2xl backdrop:bg-slate-950/45 backdrop:backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50",
         size === "preview" ? "w-[min(96vw,1120px)]" : "w-[min(92vw,520px)]",
       )}
       onCancel={onClose}
