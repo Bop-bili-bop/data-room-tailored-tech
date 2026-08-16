@@ -273,6 +273,8 @@ function App() {
   const [shareMode, setShareMode] = useState<ShareMode>("PUBLIC");
   const [shareRecipientUserId, setShareRecipientUserId] = useState("");
   const [isDraggingUpload, setDraggingUpload] = useState(false);
+  const [isRoomModalOpen, setRoomModalOpen] = useState(false);
+  const [isFolderModalOpen, setFolderModalOpen] = useState(false);
   const [isUploadModalOpen, setUploadModalOpen] = useState(false);
   const [isMemberModalOpen, setMemberModalOpen] = useState(false);
   const [isPreviewModalOpen, setPreviewModalOpen] = useState(false);
@@ -477,6 +479,7 @@ function App() {
     setSelectedRoomId(room.id);
     setRoomName("");
     setRoomDescription("");
+    setRoomModalOpen(false);
     setNotice("Data room created");
   }
 
@@ -511,6 +514,7 @@ function App() {
     });
 
     setFolderName("");
+    setFolderModalOpen(false);
     await loadRoomDetails(selectedRoom.id);
     setNotice("Folder created");
   }
@@ -990,24 +994,21 @@ function App() {
             <>
               <div className="flex items-center justify-between gap-3">
                 <SectionTitle icon={Building2} title="Projects" />
-                <Button variant="ghost" size="icon-sm" type="button" onClick={() => setProjectsOpen(false)} title="Collapse projects">
-                  <PanelLeftClose className="size-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon-sm" type="button" onClick={() => setRoomModalOpen(true)} title="Create data room">
+                    <Plus className="size-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon-sm" type="button" onClick={() => setProjectsOpen(false)} title="Collapse projects">
+                    <PanelLeftClose className="size-4" />
+                  </Button>
+                </div>
               </div>
-              <div className="mt-4">
-                <CollapsibleSection title="Create data room" description="Open only when you need a new workspace">
-                  <form onSubmit={createRoom} className="space-y-2">
-                    <Field label="Room name" value={roomName} onChange={setRoomName} compact />
-                    <Field label="Description" value={roomDescription} onChange={setRoomDescription} compact />
-                    <Button className="w-full" size="sm" type="submit">
-                      <Plus className="size-4" />
-                      Create room
-                    </Button>
-                  </form>
-                </CollapsibleSection>
-              </div>
+              <Button className="mt-4 w-full" size="sm" type="button" onClick={() => setRoomModalOpen(true)}>
+                <Plus className="size-4" />
+                New data room
+              </Button>
 
-              <div className="mt-5 space-y-2">
+              <div className="mt-4 space-y-2">
                 {rooms.map((room) => (
                   <button
                     key={room.id}
@@ -1119,36 +1120,24 @@ function App() {
             <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <div className="flex items-center justify-between gap-3">
                 <SectionTitle icon={Folder} title="Index" />
-                {selectedFolder && (
-                  <Button variant="ghost" size="xs" type="button" onClick={() => setSelectedFolderId(null)}>
-                    Room level
-                  </Button>
-                )}
+                <div className="flex items-center gap-1">
+                  {selectedFolder && (
+                    <Button variant="ghost" size="xs" type="button" onClick={() => setSelectedFolderId(null)}>
+                      Room level
+                    </Button>
+                  )}
+                  {canManage && selectedRoom && (
+                    <Button variant="ghost" size="icon-sm" type="button" onClick={() => setFolderModalOpen(true)} title="Create folder">
+                      <FolderPlus className="size-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
               {canManage && selectedRoom && (
-                <div className="mt-4 rounded-md border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/50">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold">Create folder</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {selectedFolder ? `Inside ${selectedFolder.name}` : "At room level"}
-                      </p>
-                    </div>
-                    <FolderPlus className="mt-0.5 size-4 text-slate-400 dark:text-slate-500" />
-                  </div>
-                  <form onSubmit={createFolder} className="space-y-2">
-                    <Field
-                      label={selectedFolder ? "New child folder" : "New room-level folder"}
-                      value={folderName}
-                      onChange={setFolderName}
-                      compact
-                    />
-                    <Button className="w-full" size="sm" type="submit">
-                      <FolderPlus className="size-4" />
-                      Add folder
-                    </Button>
-                  </form>
-                </div>
+                <Button className="mt-4 w-full" size="sm" type="button" onClick={() => setFolderModalOpen(true)}>
+                  <FolderPlus className="size-4" />
+                  New folder
+                </Button>
               )}
               <div className="mt-4 space-y-1">
                 {folders.length ? (
@@ -1358,6 +1347,51 @@ function App() {
           {notice}
         </div>
       )}
+
+      <Modal
+        description="Create a dedicated workspace for files, folders, members, and sharing."
+        isOpen={isRoomModalOpen}
+        title="New data room"
+        onClose={() => setRoomModalOpen(false)}
+      >
+        <form onSubmit={createRoom} className="space-y-4">
+          <Field label="Room name" value={roomName} onChange={setRoomName} />
+          <Field label="Description" value={roomDescription} onChange={setRoomDescription} />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" type="button" onClick={() => setRoomModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!roomName.trim()}>
+              <Plus className="size-4" />
+              Create room
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        description={selectedFolder ? `Inside ${selectedFolder.name}` : "At room level"}
+        isOpen={isFolderModalOpen}
+        title="New folder"
+        onClose={() => setFolderModalOpen(false)}
+      >
+        <form onSubmit={createFolder} className="space-y-4">
+          <Field
+            label={selectedFolder ? "Child folder name" : "Folder name"}
+            value={folderName}
+            onChange={setFolderName}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" type="button" onClick={() => setFolderModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!folderName.trim() || !selectedRoom}>
+              <FolderPlus className="size-4" />
+              Create folder
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         description={
@@ -1961,34 +1995,6 @@ function Breadcrumbs({
         </span>
       ))}
     </nav>
-  );
-}
-
-function CollapsibleSection({
-  title,
-  description,
-  children,
-  defaultOpen = false,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-  defaultOpen?: boolean;
-}) {
-  return (
-    <details
-      className="group rounded-md border border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-950/50"
-      open={defaultOpen}
-    >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium outline-none transition hover:bg-slate-100 focus-visible:ring-3 focus-visible:ring-emerald-200 dark:hover:bg-slate-800">
-        <span>
-          <span className="block">{title}</span>
-          {description && <span className="block text-xs font-normal text-slate-500 dark:text-slate-400">{description}</span>}
-        </span>
-        <Plus className="size-4 transition group-open:rotate-45" />
-      </summary>
-      <div className="border-t border-slate-200 p-3 dark:border-slate-800">{children}</div>
-    </details>
   );
 }
 
