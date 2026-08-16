@@ -125,6 +125,7 @@ type AuthMode = "login" | "register";
 type Theme = "light" | "dark";
 type ShareTargetType = "DATA_ROOM" | "FOLDER" | "FILE";
 type ShareMode = "PUBLIC" | "PERMISSIONED";
+type ShareFlow = "INVITE" | "LINK";
 
 type Share = {
   id: string;
@@ -296,8 +297,11 @@ function App() {
   const [shares, setShares] = useState<Share[]>([]);
   const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation | null>(null);
+  const [shareFlow, setShareFlow] = useState<ShareFlow>("LINK");
   const [shareMode, setShareMode] = useState<ShareMode>("PUBLIC");
   const [shareRecipientUserId, setShareRecipientUserId] = useState("");
+  const [inviteRecipientUserId, setInviteRecipientUserId] = useState("");
+  const [inviteRole, setInviteRole] = useState<Exclude<Role, "OWNER">>("VIEWER");
   const [isDraggingUpload, setDraggingUpload] = useState(false);
   const [isRoomModalOpen, setRoomModalOpen] = useState(false);
   const [isFolderModalOpen, setFolderModalOpen] = useState(false);
@@ -311,6 +315,7 @@ function App() {
   const [notice, setNotice] = useState("");
   const [authNotice, setAuthNotice] = useState("");
   const [deleteError, setDeleteError] = useState("");
+  const [shareError, setShareError] = useState("");
   const [isDeleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -322,6 +327,11 @@ function App() {
   const canManageMembers = currentMember?.role === "OWNER";
   const fileCount = flatFolders.reduce((total, folder) => total + folder.files.length, 0);
   const selectedFolderPath = useMemo(() => findFolderPath(folders, selectedFolderId), [folders, selectedFolderId]);
+  const inviteCandidates = useMemo(() => {
+    const memberUserIds = new Set(members.map((member) => member.userId));
+
+    return users.filter((candidate) => !memberUserIds.has(candidate.id));
+  }, [members, users]);
   const shellGridClass = cn(
     "grid min-h-[calc(100vh-65px)] grid-cols-1 transition-[grid-template-columns]",
     isProjectsOpen && isMembersOpen && "lg:grid-cols-[300px_minmax(360px,1fr)_380px]",
@@ -875,8 +885,12 @@ function App() {
 
   function openShareModal(target: ShareTarget) {
     setShareTarget(target);
+    setShareFlow(target.type === "DATA_ROOM" ? "INVITE" : "LINK");
     setShareMode("PUBLIC");
     setShareRecipientUserId("");
+    setInviteRecipientUserId("");
+    setInviteRole("VIEWER");
+    setShareError("");
     setShareModalOpen(true);
   }
 
@@ -886,19 +900,50 @@ function App() {
       return;
     }
 
-    await apiRequest<Share>(`/data-rooms/${selectedRoom.id}/shares`, {
-      method: "POST",
-      token,
-      body: JSON.stringify({
-        targetType: shareTarget.type,
-        targetId: shareTarget.id,
-        mode: shareMode,
-        recipientUserId: shareMode === "PERMISSIONED" ? shareRecipientUserId : undefined,
-      }),
-    });
+    try {
+      setShareError("");
+      await apiRequest<Share>(`/data-rooms/${selectedRoom.id}/shares`, {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          targetType: shareTarget.type,
+          targetId: shareTarget.id,
+          mode: shareMode,
+          recipientUserId: shareMode === "PERMISSIONED" ? shareRecipientUserId : undefined,
+        }),
+      });
 
-    await loadShares(selectedRoom.id);
-    setNotice("Share link created");
+      await loadShares(selectedRoom.id);
+      setNotice("Share link created");
+    } catch (error) {
+      setShareError(error instanceof Error ? error.message : "Could not create share link");
+    }
+  }
+
+  async function inviteMember(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !selectedRoom || !inviteRecipientUserId) {
+      return;
+    }
+
+    try {
+      setShareError("");
+      await apiRequest<Member>(`/data-rooms/${selectedRoom.id}/members`, {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          userId: inviteRecipientUserId,
+          role: inviteRole,
+        }),
+      });
+
+      await loadRoomDetails(selectedRoom.id);
+      setInviteRecipientUserId("");
+      setInviteRole("VIEWER");
+      setNotice(`Member invited as ${inviteRole.toLowerCase()}`);
+    } catch (error) {
+      setShareError(error instanceof Error ? error.message : "Could not invite this member");
+    }
   }
 
   async function revokeShare(shareId: string) {
@@ -1814,38 +1859,154 @@ function App() {
       </Modal>
 
       <Modal
-        description={shareTarget ? `Share ${shareTarget.label}` : "Create or revoke read-only access"}
+        description={shareTarget ? `Share ${shareTarget.label}` : "Invite people or create read-only links"}
         isOpen={isShareModalOpen}
         title="Share access"
-        onClose={() => setShareModalOpen(false)}
+        onClose={() => {
+          setShareModalOpen(false);
+          setShareError("");
+        }}
       >
         <div className="space-y-4">
-          <form onSubmit={createShare} className="space-y-3">
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Mode</span>
-              <SelectControl<ShareMode> ariaLabel="Share mode" value={shareMode} onChange={setShareMode}>
-                <option value="PUBLIC">Public link · anyone with link can view</option>
-                <option value="PERMISSIONED">Permissioned · selected user only</option>
-              </SelectControl>
-            </label>
-            {shareMode === "PERMISSIONED" && (
+          {shareTarget?.type === "DATA_ROOM" && (
+            <div className="grid grid-cols-2 rounded-md border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-950/60">
+              <button
+                className={cn(
+                  "h-9 rounded-sm text-sm font-medium transition focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200",
+                  shareFlow === "INVITE"
+                    ? "bg-white text-slate-950 shadow-sm dark:bg-slate-900 dark:text-slate-50"
+                    : "text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-slate-100",
+                )}
+                type="button"
+                onClick={() => setShareFlow("INVITE")}
+              >
+                Invite member
+              </button>
+              <button
+                className={cn(
+                  "h-9 rounded-sm text-sm font-medium transition focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200",
+                  shareFlow === "LINK"
+                    ? "bg-white text-slate-950 shadow-sm dark:bg-slate-900 dark:text-slate-50"
+                    : "text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-slate-100",
+                )}
+                type="button"
+                onClick={() => setShareFlow("LINK")}
+              >
+                Read-only link
+              </button>
+            </div>
+          )}
+
+          {shareTarget?.type === "DATA_ROOM" && shareFlow === "INVITE" ? (
+            <form onSubmit={inviteMember} className="space-y-3">
               <label className="block">
-                <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Recipient</span>
-                <SelectControl ariaLabel="Share recipient" value={shareRecipientUserId} onChange={setShareRecipientUserId}>
+                <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Invite user</span>
+                <SelectControl ariaLabel="Invite user" value={inviteRecipientUserId} onChange={setInviteRecipientUserId}>
                   <option value="">Select user</option>
-                  {users.map((candidate) => (
+                  {inviteCandidates.map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
                       {candidate.name} · {candidate.email}
                     </option>
                   ))}
                 </SelectControl>
               </label>
-            )}
-            <Button type="submit" disabled={!shareTarget || (shareMode === "PERMISSIONED" && !shareRecipientUserId)}>
-              <Link2 className="size-4" />
-              Create read-only link
-            </Button>
-          </form>
+
+              <fieldset>
+                <legend className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Access level</legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    {
+                      role: "VIEWER" as const,
+                      title: "Viewer",
+                      description: "Can view, preview, and download files.",
+                    },
+                    {
+                      role: "EDITOR" as const,
+                      title: "Editor",
+                      description: "Can upload, rename, move, and delete content.",
+                    },
+                  ].map((option) => (
+                    <button
+                      key={option.role}
+                      className={cn(
+                        "rounded-md border p-3 text-left transition focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200",
+                        inviteRole === option.role
+                          ? "border-emerald-400 bg-emerald-50 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-50"
+                          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 dark:hover:bg-slate-800",
+                      )}
+                      type="button"
+                      onClick={() => setInviteRole(option.role)}
+                    >
+                      <span className="flex items-center justify-between gap-3">
+                        <span className="font-semibold">{option.title}</span>
+                        {inviteRole === option.role && <Check className="size-4 text-emerald-700 dark:text-emerald-300" />}
+                      </span>
+                      <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{option.description}</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <Button type="submit" disabled={!inviteRecipientUserId}>
+                <Users className="size-4" />
+                Invite as {inviteRole === "EDITOR" ? "editor" : "viewer"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={createShare} className="space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Link visibility</span>
+                <SelectControl<ShareMode> ariaLabel="Share mode" value={shareMode} onChange={setShareMode}>
+                  <option value="PUBLIC">Public link · anyone with link can view</option>
+                  <option value="PERMISSIONED">Permissioned · selected user only</option>
+                </SelectControl>
+              </label>
+              {shareMode === "PERMISSIONED" && (
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Recipient</span>
+                  <SelectControl ariaLabel="Share recipient" value={shareRecipientUserId} onChange={setShareRecipientUserId}>
+                    <option value="">Select user</option>
+                    {users.map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {candidate.name} · {candidate.email}
+                      </option>
+                    ))}
+                  </SelectControl>
+                </label>
+              )}
+              <Button type="submit" disabled={!shareTarget || (shareMode === "PERMISSIONED" && !shareRecipientUserId)}>
+                <Link2 className="size-4" />
+                Create read-only link
+              </Button>
+            </form>
+          )}
+
+          {shareError && (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-950/70 dark:bg-red-950/30 dark:text-red-200">
+              {shareError}
+            </p>
+          )}
+
+          {shareTarget?.type === "DATA_ROOM" && (
+            <div className="rounded-md border border-slate-200 dark:border-slate-800">
+              <div className="border-b border-slate-200 px-3 py-2 text-sm font-medium dark:border-slate-800">
+                People with access
+              </div>
+              <div className="max-h-44 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
+                {members.map((member) => (
+                  <div key={member.id} className="flex items-center justify-between gap-3 p-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{member.user.name}</p>
+                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">{member.user.email}</p>
+                    </div>
+                    <span className="rounded-sm bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      {member.role}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="rounded-md border border-slate-200 dark:border-slate-800">
             <div className="border-b border-slate-200 px-3 py-2 text-sm font-medium dark:border-slate-800">
