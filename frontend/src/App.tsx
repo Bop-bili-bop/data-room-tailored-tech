@@ -153,6 +153,30 @@ type ShareTarget = {
   label: string;
 };
 
+type DeleteConfirmation =
+  | {
+      type: "ROOM";
+      roomId: string;
+      name: string;
+      folderCount: number;
+      fileCount: number;
+      memberCount: number;
+    }
+  | {
+      type: "FOLDER";
+      folderId: string;
+      name: string;
+      folderCount: number;
+      fileCount: number;
+    }
+  | {
+      type: "FILE";
+      fileId: string;
+      name: string;
+      mimeType: string;
+      size: number;
+    };
+
 type SharedPayload = {
   share: Share;
   target:
@@ -271,6 +295,7 @@ function App() {
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [shares, setShares] = useState<Share[]>([]);
   const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation | null>(null);
   const [shareMode, setShareMode] = useState<ShareMode>("PUBLIC");
   const [shareRecipientUserId, setShareRecipientUserId] = useState("");
   const [isDraggingUpload, setDraggingUpload] = useState(false);
@@ -285,6 +310,8 @@ function App() {
   const [isMembersOpen, setMembersOpen] = useState(true);
   const [notice, setNotice] = useState("");
   const [authNotice, setAuthNotice] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null;
@@ -500,14 +527,21 @@ function App() {
       return;
     }
 
-    await apiRequest<{ message: string }>(`/data-rooms/${roomId}`, {
-      method: "DELETE",
-      token,
-    });
+    const room = rooms.find((candidate) => candidate.id === roomId);
 
-    setRooms((current) => current.filter((room) => room.id !== roomId));
-    setSelectedRoomId((current) => (current === roomId ? null : current));
-    setNotice("Data room deleted");
+    if (!room) {
+      return;
+    }
+
+    setDeleteError("");
+    setDeleteConfirmation({
+      type: "ROOM",
+      roomId,
+      name: room.name,
+      folderCount: flatFolders.length,
+      fileCount,
+      memberCount: members.length,
+    });
   }
 
   async function createFolder(event: FormEvent<HTMLFormElement>) {
@@ -557,25 +591,24 @@ function App() {
       return;
     }
 
+    const folder = flatFolders.find((candidate) => candidate.id === folderId);
     const impact = await apiRequest<{ folderCount: number; fileCount: number }>(
       `/data-rooms/${selectedRoom.id}/folders/${folderId}/delete-impact`,
       { token },
     );
-    const confirmed = window.confirm(
-      `Delete this folder and everything inside it?\n\nThis will delete ${impact.folderCount} folder(s) and ${impact.fileCount} file(s).`,
-    );
 
-    if (!confirmed) {
+    if (!folder) {
       return;
     }
 
-    await apiRequest<{ message: string }>(`/data-rooms/${selectedRoom.id}/folders/${folderId}`, {
-      method: "DELETE",
-      token,
+    setDeleteError("");
+    setDeleteConfirmation({
+      type: "FOLDER",
+      folderId,
+      name: folder.name,
+      folderCount: impact.folderCount,
+      fileCount: impact.fileCount,
     });
-
-    await loadRoomDetails(selectedRoom.id);
-    setNotice("Folder deleted");
   }
 
   function addFilesToUploadQueue(files: File[]) {
@@ -673,22 +706,84 @@ function App() {
     });
   }
 
-  async function deleteFile(fileId: string) {
+  function deleteFile(file: StoredFile) {
     if (!token || !selectedRoom) {
       return;
     }
 
-    if (!window.confirm("Delete this file? This action cannot be undone.")) {
+    setDeleteError("");
+    setDeleteConfirmation({
+      type: "FILE",
+      fileId: file.id,
+      name: file.name,
+      mimeType: file.mimeType,
+      size: file.size,
+    });
+  }
+
+  function closeDeleteConfirmation() {
+    if (isDeleting) {
       return;
     }
 
-    await apiRequest<{ message: string }>(`/data-rooms/${selectedRoom.id}/files/${fileId}`, {
-      method: "DELETE",
-      token,
-    });
+    setDeleteConfirmation(null);
+    setDeleteError("");
+  }
 
-    await loadRoomDetails(selectedRoom.id);
-    setNotice("File deleted");
+  async function confirmDelete() {
+    if (!token || !deleteConfirmation) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      setDeleteError("");
+
+      if (deleteConfirmation.type === "ROOM") {
+        await apiRequest<{ message: string }>(`/data-rooms/${deleteConfirmation.roomId}`, {
+          method: "DELETE",
+          token,
+        });
+
+        setRooms((current) => current.filter((room) => room.id !== deleteConfirmation.roomId));
+        setSelectedRoomId((current) => (current === deleteConfirmation.roomId ? null : current));
+        setDeleteConfirmation(null);
+        setNotice("Data room deleted");
+        return;
+      }
+
+      if (!selectedRoom) {
+        return;
+      }
+
+      if (deleteConfirmation.type === "FOLDER") {
+        await apiRequest<{ message: string }>(
+          `/data-rooms/${selectedRoom.id}/folders/${deleteConfirmation.folderId}`,
+          {
+            method: "DELETE",
+            token,
+          },
+        );
+
+        await loadRoomDetails(selectedRoom.id);
+        setDeleteConfirmation(null);
+        setNotice("Folder deleted");
+        return;
+      }
+
+      await apiRequest<{ message: string }>(`/data-rooms/${selectedRoom.id}/files/${deleteConfirmation.fileId}`, {
+        method: "DELETE",
+        token,
+      });
+
+      await loadRoomDetails(selectedRoom.id);
+      setDeleteConfirmation(null);
+      setNotice("File deleted");
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Could not delete this item");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function downloadFile(file: StoredFile) {
@@ -1266,7 +1361,7 @@ function App() {
                               <Share2 className="size-4" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon-sm" onClick={() => void deleteFile(file.id)} title="Delete">
+                          <Button variant="ghost" size="icon-sm" onClick={() => deleteFile(file)} title="Delete">
                             <Trash2 className="size-4" />
                           </Button>
                         </>
@@ -1364,6 +1459,89 @@ function App() {
           <span className="min-w-0 truncate">{notice}</span>
         </div>
       )}
+
+      <Modal
+        description="This action cannot be undone."
+        isOpen={Boolean(deleteConfirmation)}
+        title={
+          deleteConfirmation?.type === "ROOM"
+            ? "Delete data room?"
+            : deleteConfirmation?.type === "FOLDER"
+              ? "Delete folder?"
+              : "Delete file?"
+        }
+        onClose={closeDeleteConfirmation}
+      >
+        {deleteConfirmation && (
+          <div className="space-y-4">
+            <div className="flex gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-red-950 dark:border-red-950/70 dark:bg-red-950/30 dark:text-red-100">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white text-red-700 shadow-sm dark:bg-red-950/70 dark:text-red-300">
+                <AlertTriangle className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-semibold">
+                  {deleteConfirmation.type === "ROOM"
+                    ? `Delete "${deleteConfirmation.name}" and all its content?`
+                    : deleteConfirmation.type === "FOLDER"
+                      ? `Delete "${deleteConfirmation.name}" and everything inside?`
+                      : `Delete "${deleteConfirmation.name}"?`}
+                </p>
+                <p className="mt-1 text-sm text-red-800 dark:text-red-200">
+                  {deleteConfirmation.type === "ROOM"
+                    ? "All folders, files, members, and share links in this room will be removed."
+                    : deleteConfirmation.type === "FOLDER"
+                      ? "Nested folders and files in this folder will be removed."
+                      : "The original file will be removed from this data room."}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3">
+              {deleteConfirmation.type === "ROOM" && (
+                <>
+                  <ImpactStat label="Folders" value={deleteConfirmation.folderCount} />
+                  <ImpactStat label="Files" value={deleteConfirmation.fileCount} />
+                  <ImpactStat label="Members" value={deleteConfirmation.memberCount} />
+                </>
+              )}
+              {deleteConfirmation.type === "FOLDER" && (
+                <>
+                  <ImpactStat label="Folders" value={deleteConfirmation.folderCount} />
+                  <ImpactStat label="Files" value={deleteConfirmation.fileCount} />
+                </>
+              )}
+              {deleteConfirmation.type === "FILE" && (
+                <>
+                  <ImpactStat label="Type" value={deleteConfirmation.mimeType} />
+                  <ImpactStat label="Size" value={formatBytes(deleteConfirmation.size)} />
+                </>
+              )}
+            </div>
+
+            {deleteError && (
+              <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-950/70 dark:bg-red-950/30 dark:text-red-200">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" type="button" disabled={isDeleting} onClick={closeDeleteConfirmation}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                type="button"
+                disabled={isDeleting}
+                onClick={() => void confirmDelete()}
+                className="bg-red-600 text-white shadow-sm hover:bg-red-700 focus-visible:border-red-700 focus-visible:ring-red-200 dark:bg-red-600 dark:text-white dark:hover:bg-red-500"
+              >
+                <Trash2 className="size-4" />
+                {isDeleting ? "Deleting..." : "Delete permanently"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         description="Create a dedicated workspace for files, folders, members, and sharing."
@@ -1947,6 +2125,15 @@ function Metric({ label, value }: { label: string; value: number }) {
     <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/60">
       <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
       <p className="text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function ImpactStat({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/60">
+      <p className="text-xs font-medium uppercase tracking-normal text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-slate-50">{value}</p>
     </div>
   );
 }
