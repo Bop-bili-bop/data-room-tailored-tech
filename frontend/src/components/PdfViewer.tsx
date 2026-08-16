@@ -182,7 +182,7 @@ export function PdfViewer({ fileName, url, onDownload, onOpenOriginal }: PdfView
   };
 
   return (
-    <div className="flex h-[72vh] min-h-[520px] flex-col bg-slate-100 dark:bg-slate-950">
+    <div className="flex h-full min-h-0 flex-col bg-slate-100 dark:bg-slate-950">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300">

@@ -1551,14 +1551,14 @@ function App() {
         onClose={closePreviewModal}
       >
         <div className="space-y-3">
-          <div className="min-h-[420px] overflow-hidden rounded-md border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
+          <div className="h-[58vh] min-h-[360px] overflow-hidden rounded-md border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
             {!filePreviewUrl ? (
-              <div className="flex min-h-[420px] items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+              <div className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">
                 Loading preview
               </div>
             ) : selectedFile?.mimeType.startsWith("image/") ? (
-              <div className="flex min-h-[62vh] items-center justify-center bg-slate-950/5 p-4 dark:bg-black/20">
-                <img className="max-h-[72vh] w-full object-contain" src={filePreviewUrl} alt={selectedFile.name} />
+              <div className="flex h-full items-center justify-center bg-slate-950/5 p-4 dark:bg-black/20">
+                <img className="max-h-full w-full object-contain" src={filePreviewUrl} alt={selectedFile.name} />
               </div>
             ) : selectedFile?.mimeType === "application/pdf" ? (
               <PdfViewer
@@ -1568,7 +1568,7 @@ function App() {
                 onOpenOriginal={() => window.open(filePreviewUrl, "_blank", "noopener,noreferrer")}
               />
             ) : (
-              <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400">
                 <FileText className="size-8" />
                 Preview is not available for this file type.
               </div>
@@ -2059,7 +2059,9 @@ function Modal({
           </Button>
         </div>
       </div>
-      <div className="max-h-[calc(86vh-88px)] overflow-y-auto p-5">{children}</div>
+      <div className={cn("p-5", size === "preview" ? "overflow-hidden" : "max-h-[calc(86vh-88px)] overflow-y-auto")}>
+        {children}
+      </div>
     </dialog>
   );
 }
