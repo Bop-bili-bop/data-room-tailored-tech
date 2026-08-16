@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  Bell,
   Building2,
   Check,
   ChevronDown,
@@ -283,6 +284,7 @@ function App() {
   const [isProjectsOpen, setProjectsOpen] = useState(true);
   const [isMembersOpen, setMembersOpen] = useState(true);
   const [notice, setNotice] = useState("");
+  const [authNotice, setAuthNotice] = useState("");
   const [loading, setLoading] = useState(false);
 
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null;
@@ -319,6 +321,16 @@ function App() {
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setNotice(""), 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [notice]);
+
   async function bootstrapSession(activeToken: string) {
     try {
       setLoading(true);
@@ -331,7 +343,7 @@ function App() {
       setRooms(roomList);
       setSelectedRoomId((current) => current ?? roomList[0]?.id ?? null);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Session expired");
+      setAuthNotice(error instanceof Error ? error.message : "Session expired");
       logout();
     } finally {
       setLoading(false);
@@ -417,7 +429,7 @@ function App() {
   async function handleAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
-    setNotice("");
+    setAuthNotice("");
 
     try {
       const payload =
@@ -439,7 +451,7 @@ function App() {
       setNotice("Signed in");
       await bootstrapSession(response.accessToken);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Authentication failed");
+      setAuthNotice(error instanceof Error ? error.message : "Authentication failed");
     } finally {
       setLoading(false);
     }
@@ -504,19 +516,21 @@ function App() {
       return;
     }
 
-    await apiRequest<FolderNode>(`/data-rooms/${selectedRoom.id}/folders`, {
+    const requestedName = folderName.trim();
+    const folder = await apiRequest<FolderNode>(`/data-rooms/${selectedRoom.id}/folders`, {
       method: "POST",
       token,
       body: JSON.stringify({
-        name: folderName.trim(),
+        name: requestedName,
         parentId: selectedFolderId,
       }),
     });
 
     setFolderName("");
     setFolderModalOpen(false);
+    setSelectedFolderId(folder.id);
     await loadRoomDetails(selectedRoom.id);
-    setNotice("Folder created");
+    setNotice(folder.name === requestedName ? "Folder created" : `Folder created as ${folder.name}`);
   }
 
   async function renameFolder(folder: FolderNode) {
@@ -950,7 +964,7 @@ function App() {
               <Shield className="size-4" />
               {authMode === "login" ? "Login" : "Create account"}
             </Button>
-            {notice && <p className="mt-4 text-sm text-red-700 dark:text-red-300">{notice}</p>}
+            {authNotice && <p className="mt-4 text-sm text-red-700 dark:text-red-300">{authNotice}</p>}
           </form>
         </section>
       </main>
@@ -1343,8 +1357,11 @@ function App() {
       </div>
 
       {notice && (
-        <div className="fixed bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-          {notice}
+        <div className="fixed top-4 left-1/2 z-50 flex max-w-[min(92vw,520px)] -translate-x-1/2 items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-950 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+            <Bell className="size-4" />
+          </span>
+          <span className="min-w-0 truncate">{notice}</span>
         </div>
       )}
 

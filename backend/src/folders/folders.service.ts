@@ -48,9 +48,15 @@ export class FoldersService {
       }
     }
 
+    const name = await this.resolveAvailableFolderName(
+      dataRoomId,
+      dto.parentId ?? null,
+      dto.name,
+    );
+
     return this.prisma.folder.create({
       data: {
-        name: dto.name,
+        name,
         dataRoomId,
         parentId: dto.parentId,
       },
@@ -141,12 +147,19 @@ export class FoldersService {
       throw new ForbiddenException('Viewers cannot update folders');
     }
 
+    const name = await this.resolveAvailableFolderName(
+      dataRoomId,
+      folder.parentId,
+      dto.name,
+      folderId,
+    );
+
     return this.prisma.folder.update({
       where: {
         id: folderId,
       },
       data: {
-        name: dto.name,
+        name,
       },
     });
   }
@@ -266,6 +279,46 @@ export class FoldersService {
     if (!folder) {
       throw new NotFoundException('Folder not found');
     }
+  }
+
+  private async resolveAvailableFolderName(
+    dataRoomId: string,
+    parentId: string | null,
+    requestedName: string,
+    excludeFolderId?: string,
+  ): Promise<string> {
+    const baseName = requestedName.trim();
+    const siblings = await this.prisma.folder.findMany({
+      where: {
+        dataRoomId,
+        parentId,
+        ...(excludeFolderId
+          ? {
+              id: {
+                not: excludeFolderId,
+              },
+            }
+          : {}),
+      },
+      select: {
+        name: true,
+      },
+    });
+    const usedNames = new Set(siblings.map((folder) => folder.name));
+
+    if (!usedNames.has(baseName)) {
+      return baseName;
+    }
+
+    let suffix = 2;
+    let candidate = `${baseName} (${suffix})`;
+
+    while (usedNames.has(candidate)) {
+      suffix += 1;
+      candidate = `${baseName} (${suffix})`;
+    }
+
+    return candidate;
   }
 
   private async collectFolderAndDescendantIds(
