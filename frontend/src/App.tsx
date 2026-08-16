@@ -1,8 +1,10 @@
 import {
   AlertTriangle,
   Building2,
+  Check,
   ChevronDown,
   ChevronRight,
+  ChevronsUpDown,
   Copy,
   Download,
   Eye,
@@ -31,9 +33,22 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import * as SelectPrimitive from "@radix-ui/react-select";
+import {
+  Children,
+  type ChangeEvent,
+  type FormEvent,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "@/components/ui/button";
+import { PdfViewer } from "@/components/PdfViewer";
 import { cn } from "@/lib/utils";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:3000";
@@ -1546,6 +1561,7 @@ function App() {
       <Modal
         description={selectedFile?.mimeType}
         isOpen={isPreviewModalOpen}
+        size="preview"
         title={selectedFile?.name ?? "File preview"}
         onClose={closePreviewModal}
       >
@@ -1556,9 +1572,21 @@ function App() {
                 Loading preview
               </div>
             ) : selectedFile?.mimeType.startsWith("image/") ? (
-              <img className="max-h-[70vh] w-full object-contain" src={filePreviewUrl} alt={selectedFile.name} />
+              <div className="flex min-h-[62vh] items-center justify-center bg-slate-950/5 p-4 dark:bg-black/20">
+                <img className="max-h-[72vh] w-full object-contain" src={filePreviewUrl} alt={selectedFile.name} />
+              </div>
+            ) : selectedFile?.mimeType === "application/pdf" ? (
+              <PdfViewer
+                fileName={selectedFile.name}
+                url={filePreviewUrl}
+                onDownload={() => void downloadFile(selectedFile)}
+                onOpenOriginal={() => window.open(filePreviewUrl, "_blank", "noopener,noreferrer")}
+              />
             ) : (
-              <iframe className="h-[70vh] w-full" src={filePreviewUrl} title={selectedFile?.name ?? "PDF preview"} />
+              <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                <FileText className="size-8" />
+                Preview is not available for this file type.
+              </div>
             )}
           </div>
           {selectedFile && (
@@ -1829,26 +1857,63 @@ function SelectControl<TValue extends string>({
   value: TValue;
   onChange: (value: TValue) => void;
 }) {
+  const options = Children.toArray(children)
+    .filter((child): child is ReactElement<{ children: ReactNode; disabled?: boolean; value?: string }> => isValidElement(child))
+    .map((child) => ({
+      disabled: child.props.disabled,
+      label: child.props.children,
+      value: child.props.value ?? "",
+    }));
+  const selectedOption = options.find((option) => option.value === value);
+  const emptyValue = "__empty_select_value__";
+
   return (
-    <div className={cn("relative", className)}>
-      <select
+    <SelectPrimitive.Root
+      value={value || emptyValue}
+      onValueChange={(nextValue) => onChange((nextValue === emptyValue ? "" : nextValue) as TValue)}
+    >
+      <SelectPrimitive.Trigger
         aria-label={ariaLabel}
         className={cn(
-          "peer w-full appearance-none rounded-md border border-slate-300 bg-white text-slate-950 outline-none transition hover:border-slate-400 focus:border-emerald-500 focus:ring-3 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:hover:border-slate-600 dark:focus:border-emerald-500 dark:focus:ring-emerald-950 dark:disabled:bg-slate-900 dark:disabled:text-slate-500",
-          compact ? "h-8 px-2 pr-8 text-xs" : "h-10 px-3 pr-10 text-sm",
+          "flex w-full items-center justify-between gap-2 rounded-md border border-slate-300 bg-white text-left text-slate-950 shadow-xs outline-none transition hover:border-slate-400 focus-visible:border-emerald-500 focus-visible:ring-3 focus-visible:ring-emerald-100 data-[placeholder]:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:hover:border-slate-600 dark:focus-visible:border-emerald-500 dark:focus-visible:ring-emerald-950 dark:disabled:bg-slate-900 dark:disabled:text-slate-500",
+          compact ? "h-8 px-2 text-xs" : "h-10 px-3 text-sm",
+          className,
         )}
-        value={value}
-        onChange={(event) => onChange(event.target.value as TValue)}
       >
-        {children}
-      </select>
-      <ChevronDown
-        className={cn(
-          "pointer-events-none absolute top-1/2 -translate-y-1/2 text-slate-400 transition peer-focus:text-emerald-600 dark:text-slate-500 dark:peer-focus:text-emerald-300",
-          compact ? "right-2 size-3.5" : "right-3 size-4",
-        )}
-      />
-    </div>
+        <SelectPrimitive.Value>{selectedOption?.label}</SelectPrimitive.Value>
+        <SelectPrimitive.Icon asChild>
+          <ChevronsUpDown className={cn("shrink-0 text-slate-400 dark:text-slate-500", compact ? "size-3.5" : "size-4")} />
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          className="z-50 max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border border-slate-200 bg-white p-1 text-slate-950 shadow-xl data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50"
+          position="popper"
+        >
+          <SelectPrimitive.ScrollUpButton className="flex h-6 items-center justify-center text-slate-400">
+            <ChevronDown className="size-4 rotate-180" />
+          </SelectPrimitive.ScrollUpButton>
+          <SelectPrimitive.Viewport>
+            {options.map((option) => (
+              <SelectPrimitive.Item
+                key={option.value || emptyValue}
+                className="relative flex min-h-9 cursor-pointer select-none items-center rounded-sm py-2 pr-3 pl-8 text-sm outline-none transition data-[disabled]:pointer-events-none data-[highlighted]:bg-emerald-50 data-[highlighted]:text-emerald-950 data-[disabled]:opacity-50 dark:data-[highlighted]:bg-emerald-950 dark:data-[highlighted]:text-emerald-100"
+                disabled={option.disabled}
+                value={option.value || emptyValue}
+              >
+                <SelectPrimitive.ItemIndicator className="absolute left-2 inline-flex items-center">
+                  <Check className="size-4" />
+                </SelectPrimitive.ItemIndicator>
+                <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+              </SelectPrimitive.Item>
+            ))}
+          </SelectPrimitive.Viewport>
+          <SelectPrimitive.ScrollDownButton className="flex h-6 items-center justify-center text-slate-400">
+            <ChevronDown className="size-4" />
+          </SelectPrimitive.ScrollDownButton>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
   );
 }
 
@@ -1974,12 +2039,14 @@ function Modal({
   title,
   description,
   children,
+  size = "default",
   onClose,
 }: {
   isOpen: boolean;
   title: string;
   description?: string;
   children: ReactNode;
+  size?: "default" | "preview";
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -2004,7 +2071,10 @@ function Modal({
     <dialog
       ref={dialogRef}
       aria-labelledby={`${title.replace(/\s+/g, "-").toLowerCase()}-title`}
-      className="m-auto max-h-[86vh] w-[min(92vw,520px)] overflow-hidden rounded-md border border-slate-200 bg-white p-0 text-slate-950 shadow-2xl backdrop:bg-slate-950/45 backdrop:backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50"
+      className={cn(
+        "m-auto max-h-[86vh] overflow-hidden rounded-md border border-slate-200 bg-white p-0 text-slate-950 shadow-2xl backdrop:bg-slate-950/45 backdrop:backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50",
+        size === "preview" ? "w-[min(96vw,1120px)]" : "w-[min(92vw,520px)]",
+      )}
       onCancel={onClose}
       onClick={(event) => {
         if (event.target === dialogRef.current) {
