@@ -18,6 +18,7 @@ model DataRoom {
 
   members DataRoomMember[]
   folders Folder[]
+  shares  Share[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -69,6 +70,7 @@ model File {
   originalName String
   mimeType     String
   size         Int
+  version      Int    @default(1)
 
   storageKey String
 
@@ -98,10 +100,50 @@ model User {
   memberships    DataRoomMember[]
 
   uploadedFiles File[]
+  createdShares Share[] @relation("ShareCreator")
+  receivedShares Share[] @relation("ShareRecipient")
 }
 
 enum Role {
   OWNER
   EDITOR
   VIEWER
+}
+
+model Share {
+  id String @id @default(uuid())
+
+  dataRoomId String
+  dataRoom   DataRoom @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+
+  targetType ShareTargetType
+  targetId   String
+  mode       ShareMode
+  token      String          @unique
+
+  createdById String
+  createdBy   User   @relation("ShareCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  recipientUserId String?
+  recipientUser   User?   @relation("ShareRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([dataRoomId])
+  @@index([targetType, targetId])
+  @@index([recipientUserId])
+  @@index([token])
+}
+
+enum ShareTargetType {
+  DATA_ROOM
+  FOLDER
+  FILE
+}
+
+enum ShareMode {
+  PUBLIC
+  PERMISSIONED
 }

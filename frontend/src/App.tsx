@@ -1,14 +1,19 @@
 import {
+  AlertTriangle,
   Building2,
   ChevronDown,
   ChevronRight,
+  Copy,
   Download,
+  Eye,
   FileImage,
   FileText,
   Folder,
   FolderPlus,
+  Link2,
   LogOut,
   Moon,
+  MoveRight,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -17,6 +22,7 @@ import {
   Plus,
   RefreshCcw,
   Search,
+  Share2,
   Shield,
   Sun,
   Trash2,
@@ -70,11 +76,17 @@ type StoredFile = {
   originalName: string;
   mimeType: string;
   size: number;
+  version: number;
   storageKey: string;
   folderId: string;
   uploadedById: string;
   createdAt: string;
   updatedAt: string;
+};
+
+type SharedFile = StoredFile & {
+  previewUrl: string;
+  downloadUrl: string;
 };
 
 type FolderNode = {
@@ -88,8 +100,50 @@ type FolderNode = {
   updatedAt: string;
 };
 
+type SharedFolderNode = Omit<FolderNode, "files" | "children"> & {
+  files: SharedFile[];
+  children: SharedFolderNode[];
+};
+
 type AuthMode = "login" | "register";
 type Theme = "light" | "dark";
+type ShareTargetType = "DATA_ROOM" | "FOLDER" | "FILE";
+type ShareMode = "PUBLIC" | "PERMISSIONED";
+
+type Share = {
+  id: string;
+  dataRoomId: string;
+  targetType: ShareTargetType;
+  targetId: string;
+  mode: ShareMode;
+  token: string;
+  recipientUserId?: string | null;
+  revokedAt?: string | null;
+  createdAt: string;
+  recipientUser?: Pick<User, "id" | "name" | "email"> | null;
+};
+
+type UploadQueueItem = {
+  id: string;
+  file: File;
+  progress: number;
+  status: "queued" | "uploading" | "done" | "error";
+  error?: string;
+};
+
+type ShareTarget = {
+  type: ShareTargetType;
+  id: string;
+  label: string;
+};
+
+type SharedPayload = {
+  share: Share;
+  target:
+    | { type: "DATA_ROOM"; room: Pick<DataRoom, "id" | "name" | "description">; folders: SharedFolderNode[] }
+    | { type: "FOLDER"; folder: SharedFolderNode }
+    | { type: "FILE"; file: SharedFile };
+};
 
 type ApiOptions = RequestInit & {
   token?: string | null;
@@ -164,6 +218,9 @@ function findFolderPath(folders: FolderNode[], folderId: string | null): FolderN
 }
 
 function App() {
+  const sharedToken = window.location.pathname.match(/^\/shared\/([^/]+)/)?.[1] ?? null;
+  const [sharedPayload, setSharedPayload] = useState<SharedPayload | null>(null);
+  const [sharedError, setSharedError] = useState("");
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
   const [theme, setTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem(THEME_KEY);
@@ -191,9 +248,21 @@ function App() {
   const [memberSearch, setMemberSearch] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedRole, setSelectedRole] = useState<Role>("VIEWER");
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
+  const [selectedFile, setSelectedFile] = useState<StoredFile | null>(null);
+  const [fileName, setFileName] = useState("");
+  const [destinationFolderId, setDestinationFolderId] = useState("");
+  const [filePreviewUrl, setFilePreviewUrl] = useState("");
+  const [shares, setShares] = useState<Share[]>([]);
+  const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
+  const [shareMode, setShareMode] = useState<ShareMode>("PUBLIC");
+  const [shareRecipientUserId, setShareRecipientUserId] = useState("");
+  const [isDraggingUpload, setDraggingUpload] = useState(false);
   const [isUploadModalOpen, setUploadModalOpen] = useState(false);
   const [isMemberModalOpen, setMemberModalOpen] = useState(false);
+  const [isPreviewModalOpen, setPreviewModalOpen] = useState(false);
+  const [isFileManageModalOpen, setFileManageModalOpen] = useState(false);
+  const [isShareModalOpen, setShareModalOpen] = useState(false);
   const [isProjectsOpen, setProjectsOpen] = useState(true);
   const [isIndexOpen, setIndexOpen] = useState(true);
   const [isMembersOpen, setMembersOpen] = useState(true);
@@ -221,42 +290,21 @@ function App() {
   );
 
   useEffect(() => {
+    if (!sharedToken) {
+      return;
+    }
+
+    void apiRequest<SharedPayload>(`/shares/${sharedToken}`)
+      .then(setSharedPayload)
+      .catch((error: unknown) => {
+        setSharedError(error instanceof Error ? error.message : "Share link unavailable");
+      });
+  }, [sharedToken]);
+
+  useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
-
-  useEffect(() => {
-    if (!token) {
-      return;
-    }
-
-    void bootstrapSession(token);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
-  useEffect(() => {
-    if (!token || !selectedRoomId) {
-      return;
-    }
-
-    void loadRoomDetails(selectedRoomId, token);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRoomId, token]);
-
-  useEffect(() => {
-    if (!token || !isMemberModalOpen || users.length) {
-      return;
-    }
-
-    void apiRequest<User[]>("/users", { token })
-      .then((result) => {
-        setUsers(result);
-        setSelectedUserId(result[0]?.id ?? "");
-      })
-      .catch((error: unknown) => {
-        setNotice(error instanceof Error ? error.message : "Could not load users");
-      });
-  }, [isMemberModalOpen, token, users.length]);
 
   async function bootstrapSession(activeToken: string) {
     try {
@@ -289,6 +337,12 @@ function App() {
 
     setMembers(memberList);
     setFolders(folderTree);
+    const currentUserMember = memberList.find((member) => member.userId === user?.id);
+    if (currentUserMember?.role === "OWNER") {
+      void loadShares(roomId, activeToken);
+    } else {
+      setShares([]);
+    }
     setSelectedFolderId((current) => {
       const foldersFlat = flattenFolders(folderTree);
       return current && foldersFlat.some((folder) => folder.id === current)
@@ -296,6 +350,56 @@ function App() {
         : foldersFlat[0]?.id ?? null;
     });
   }
+
+  async function loadShares(roomId: string, activeToken = token) {
+    if (!activeToken) {
+      return;
+    }
+
+    try {
+      const result = await apiRequest<Share[]>(`/data-rooms/${roomId}/shares`, {
+        token: activeToken,
+      });
+      setShares(result);
+    } catch {
+      setShares([]);
+    }
+  }
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void bootstrapSession(token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  useEffect(() => {
+    if (!token || !selectedRoomId) {
+      return;
+    }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadRoomDetails(selectedRoomId, token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRoomId, token]);
+
+  useEffect(() => {
+    if (!token || (!isMemberModalOpen && !isShareModalOpen) || users.length) {
+      return;
+    }
+
+    void apiRequest<User[]>("/users", { token })
+      .then((result) => {
+        setUsers(result);
+        setSelectedUserId(result[0]?.id ?? "");
+      })
+      .catch((error: unknown) => {
+        setNotice(error instanceof Error ? error.message : "Could not load users");
+      });
+  }, [isMemberModalOpen, isShareModalOpen, token, users.length]);
 
   async function handleAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -337,6 +441,10 @@ function App() {
     setFolders([]);
     setSelectedRoomId(null);
     setSelectedFolderId(null);
+  }
+
+  if (sharedToken) {
+    return <SharedView error={sharedError} payload={sharedPayload} />;
   }
 
   async function createRoom(event: FormEvent<HTMLFormElement>) {
@@ -420,6 +528,18 @@ function App() {
       return;
     }
 
+    const impact = await apiRequest<{ folderCount: number; fileCount: number }>(
+      `/data-rooms/${selectedRoom.id}/folders/${folderId}/delete-impact`,
+      { token },
+    );
+    const confirmed = window.confirm(
+      `Delete this folder and everything inside it?\n\nThis will delete ${impact.folderCount} folder(s) and ${impact.fileCount} file(s).`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     await apiRequest<{ message: string }>(`/data-rooms/${selectedRoom.id}/folders/${folderId}`, {
       method: "DELETE",
       token,
@@ -429,32 +549,107 @@ function App() {
     setNotice("Folder deleted");
   }
 
-  async function uploadSelectedFile(event: FormEvent<HTMLFormElement>) {
+  function addFilesToUploadQueue(files: File[]) {
+    setUploadQueue((current) => [
+      ...current,
+      ...files.map((file) => ({
+        id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
+        file,
+        progress: 0,
+        status: "queued" as const,
+      })),
+    ]);
+  }
+
+  async function uploadSelectedFiles(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token || !selectedRoom || !selectedFolder || !uploadFile) {
+    if (!token || !selectedRoom || !selectedFolder || !uploadQueue.length) {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("file", uploadFile);
+    const queuedItems = uploadQueue.filter((item) => item.status !== "done");
 
-    await apiRequest<StoredFile>(
-      `/data-rooms/${selectedRoom.id}/folders/${selectedFolder.id}/files`,
-      {
-        method: "POST",
-        token,
-        body: formData,
-      },
+    let hasUploadError = false;
+    await Promise.all(
+      queuedItems.map((item) =>
+        uploadFileWithProgress(item, selectedRoom.id, selectedFolder.id).catch((error: unknown) => {
+          hasUploadError = true;
+          setUploadQueue((current) =>
+            current.map((candidate) =>
+              candidate.id === item.id
+                ? {
+                    ...candidate,
+                    status: "error",
+                    error: error instanceof Error ? error.message : "Upload failed",
+                  }
+                : candidate,
+            ),
+          );
+        }),
+      ),
     );
 
-    setUploadFile(null);
-    setUploadModalOpen(false);
     await loadRoomDetails(selectedRoom.id);
-    setNotice("File uploaded");
+    if (!hasUploadError) {
+      setUploadQueue([]);
+      setUploadModalOpen(false);
+    }
+    setNotice("Upload complete");
+  }
+
+  function uploadFileWithProgress(item: UploadQueueItem, dataRoomId: string, folderId: string) {
+    if (!token) {
+      return Promise.reject(new Error("Missing session"));
+    }
+
+    setUploadQueue((current) =>
+      current.map((candidate) =>
+        candidate.id === item.id ? { ...candidate, status: "uploading", progress: 0 } : candidate,
+      ),
+    );
+
+    return new Promise<void>((resolve, reject) => {
+      const formData = new FormData();
+      formData.append("files", item.file);
+      const request = new XMLHttpRequest();
+
+      request.upload.onprogress = (event) => {
+        if (!event.lengthComputable) {
+          return;
+        }
+
+        const progress = Math.round((event.loaded / event.total) * 100);
+        setUploadQueue((current) =>
+          current.map((candidate) => (candidate.id === item.id ? { ...candidate, progress } : candidate)),
+        );
+      };
+
+      request.onload = () => {
+        if (request.status >= 200 && request.status < 300) {
+          setUploadQueue((current) =>
+            current.map((candidate) =>
+              candidate.id === item.id ? { ...candidate, progress: 100, status: "done" } : candidate,
+            ),
+          );
+          resolve();
+          return;
+        }
+
+        reject(new Error(request.responseText || "Upload failed"));
+      };
+      request.onerror = () => reject(new Error("Upload failed"));
+      request.open("POST", `${API_URL}/data-rooms/${dataRoomId}/folders/${folderId}/files/bulk`);
+      request.setRequestHeader("Authorization", `Bearer ${token}`);
+      request.send(formData);
+    });
   }
 
   async function deleteFile(fileId: string) {
     if (!token || !selectedRoom) {
+      return;
+    }
+
+    if (!window.confirm("Delete this file? This action cannot be undone.")) {
       return;
     }
 
@@ -490,6 +685,116 @@ function App() {
     link.download = file.originalName;
     link.click();
     window.URL.revokeObjectURL(url);
+  }
+
+  async function previewFile(file: StoredFile) {
+    if (!token || !selectedRoom) {
+      return;
+    }
+
+    const response = await fetch(`${API_URL}/data-rooms/${selectedRoom.id}/files/${file.id}/preview`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      setNotice("Preview failed");
+      return;
+    }
+
+    if (filePreviewUrl) {
+      window.URL.revokeObjectURL(filePreviewUrl);
+    }
+
+    const blob = await response.blob();
+    setSelectedFile(file);
+    setFilePreviewUrl(window.URL.createObjectURL(blob));
+    setPreviewModalOpen(true);
+  }
+
+  function closePreviewModal() {
+    if (filePreviewUrl) {
+      window.URL.revokeObjectURL(filePreviewUrl);
+    }
+
+    setFilePreviewUrl("");
+    setPreviewModalOpen(false);
+  }
+
+  function openFileManageModal(file: StoredFile) {
+    setSelectedFile(file);
+    setFileName(file.name);
+    setDestinationFolderId(file.folderId);
+    setFileManageModalOpen(true);
+  }
+
+  async function updateSelectedFile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !selectedRoom || !selectedFile) {
+      return;
+    }
+
+    await apiRequest<StoredFile>(`/data-rooms/${selectedRoom.id}/files/${selectedFile.id}`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({
+        name: fileName.trim(),
+        folderId: destinationFolderId,
+      }),
+    });
+
+    setFileManageModalOpen(false);
+    await loadRoomDetails(selectedRoom.id);
+    setNotice("File updated");
+  }
+
+  function openShareModal(target: ShareTarget) {
+    setShareTarget(target);
+    setShareMode("PUBLIC");
+    setShareRecipientUserId("");
+    setShareModalOpen(true);
+  }
+
+  async function createShare(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !selectedRoom || !shareTarget) {
+      return;
+    }
+
+    await apiRequest<Share>(`/data-rooms/${selectedRoom.id}/shares`, {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        targetType: shareTarget.type,
+        targetId: shareTarget.id,
+        mode: shareMode,
+        recipientUserId: shareMode === "PERMISSIONED" ? shareRecipientUserId : undefined,
+      }),
+    });
+
+    await loadShares(selectedRoom.id);
+    setNotice("Share link created");
+  }
+
+  async function revokeShare(shareId: string) {
+    if (!token || !selectedRoom) {
+      return;
+    }
+
+    await apiRequest<Share>(`/data-rooms/${selectedRoom.id}/shares/${shareId}`, {
+      method: "DELETE",
+      token,
+    });
+
+    await loadShares(selectedRoom.id);
+    setNotice("Share revoked");
+  }
+
+  async function copyShareLink(share: Share) {
+    const link = `${window.location.origin}/shared/${share.token}`;
+    await navigator.clipboard.writeText(link);
+    setNotice("Share link copied");
   }
 
   async function searchUsers(event: FormEvent<HTMLFormElement>) {
@@ -790,10 +1095,27 @@ function App() {
                 </p>
               </div>
               {selectedRoom && canManageMembers && (
-                <Button variant="destructive" size="sm" onClick={() => void deleteRoom(selectedRoom.id)}>
-                  <Trash2 className="size-4" />
-                  Delete room
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() =>
+                      openShareModal({
+                        type: "DATA_ROOM",
+                        id: selectedRoom.id,
+                        label: selectedRoom.name,
+                      })
+                    }
+                  >
+                    <Share2 className="size-4" />
+                    Share room
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => void deleteRoom(selectedRoom.id)}>
+                    <Trash2 className="size-4" />
+                    Delete room
+                  </Button>
+                </div>
               )}
             </div>
             <details className="room-snapshot-disclosure mt-4 rounded-md border border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-950/50">
@@ -901,6 +1223,23 @@ function App() {
                       Upload
                     </Button>
                   )}
+                  {canManageMembers && selectedFolder && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={() =>
+                        openShareModal({
+                          type: "FOLDER",
+                          id: selectedFolder.id,
+                          label: selectedFolder.name,
+                        })
+                      }
+                    >
+                      <Share2 className="size-4" />
+                      Share
+                    </Button>
+                  )}
                 </div>
               </div>
               <div className="mt-3 flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950/60">
@@ -925,18 +1264,43 @@ function App() {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{file.originalName}</p>
+                        <p className="truncate text-sm font-medium">{file.name}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
                           {formatBytes(file.size)} · {file.mimeType}
+                          {file.version > 1 ? ` · v${file.version}` : ""}
                         </p>
                       </div>
+                      <Button variant="ghost" size="icon-sm" onClick={() => void previewFile(file)} title="Preview">
+                        <Eye className="size-4" />
+                      </Button>
                       <Button variant="ghost" size="icon-sm" onClick={() => void downloadFile(file)} title="Download">
                         <Download className="size-4" />
                       </Button>
                       {canManage && (
-                        <Button variant="ghost" size="icon-sm" onClick={() => void deleteFile(file.id)} title="Delete">
-                          <Trash2 className="size-4" />
-                        </Button>
+                        <>
+                          <Button variant="ghost" size="icon-sm" onClick={() => openFileManageModal(file)} title="Rename or move">
+                            <MoveRight className="size-4" />
+                          </Button>
+                          {canManageMembers && (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() =>
+                                openShareModal({
+                                  type: "FILE",
+                                  id: file.id,
+                                  label: file.name,
+                                })
+                              }
+                              title="Share file"
+                            >
+                              <Share2 className="size-4" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="icon-sm" onClick={() => void deleteFile(file.id)} title="Delete">
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   ))
@@ -1039,30 +1403,77 @@ function App() {
         title="Upload file"
         onClose={() => setUploadModalOpen(false)}
       >
-        <form onSubmit={uploadSelectedFile} className="space-y-4">
+        <form onSubmit={uploadSelectedFiles} className="space-y-4">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              File
-            </span>
-            <span className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-sm text-slate-600 transition hover:border-emerald-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-emerald-600">
+            <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Files</span>
+            <span
+              className={cn(
+                "flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed px-4 text-center text-sm transition",
+                isDraggingUpload
+                  ? "border-emerald-500 bg-emerald-50 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-100"
+                  : "border-slate-300 bg-slate-50 text-slate-600 hover:border-emerald-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-emerald-600",
+              )}
+              onDragLeave={() => setDraggingUpload(false)}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDraggingUpload(true);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDraggingUpload(false);
+                addFilesToUploadQueue(Array.from(event.dataTransfer.files));
+              }}
+            >
               <Upload className="size-5" />
-              <span className="max-w-full truncate font-medium">{uploadFile?.name ?? "Choose PDF or image"}</span>
+              <span className="max-w-full truncate font-medium">Drop files here or choose from your device</span>
               <span className="text-xs text-slate-500 dark:text-slate-400">PDF, JPG, PNG, WEBP, GIF · max 20 MB</span>
             </span>
             <input
               className="sr-only"
               accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,application/pdf,image/jpeg,image/png,image/webp,image/gif"
+              multiple
               type="file"
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setUploadFile(event.target.files?.[0] ?? null)}
+              onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                addFilesToUploadQueue(Array.from(event.target.files ?? []));
+                event.target.value = "";
+              }}
             />
           </label>
+          {uploadQueue.length > 0 && (
+            <div className="space-y-2 rounded-md border border-slate-200 p-2 dark:border-slate-800">
+              {uploadQueue.map((item) => (
+                <div key={item.id} className="space-y-1 rounded-sm bg-slate-50 p-2 dark:bg-slate-950/70">
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    <span className="min-w-0 truncate font-medium">{item.file.name}</span>
+                    <span className="shrink-0 text-slate-500 dark:text-slate-400">
+                      {item.status === "error" ? "Failed" : `${item.progress}%`}
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                    <div
+                      className={cn("h-full rounded-full bg-emerald-500 transition-all", item.status === "error" && "bg-red-500")}
+                      style={{ width: `${item.status === "queued" ? 0 : item.progress}%` }}
+                    />
+                  </div>
+                  {item.error && <p className="text-xs text-red-600 dark:text-red-300">{item.error}</p>}
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex justify-end gap-2">
-            <Button variant="outline" type="button" onClick={() => setUploadModalOpen(false)}>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => {
+                setUploadQueue([]);
+                setUploadModalOpen(false);
+              }}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={!uploadFile || !selectedFolder}>
+            <Button type="submit" disabled={!uploadQueue.length || !selectedFolder}>
               <Upload className="size-4" />
-              Upload
+              Upload {uploadQueue.length || ""}
             </Button>
           </div>
         </form>
@@ -1131,7 +1542,244 @@ function App() {
           </form>
         </div>
       </Modal>
+
+      <Modal
+        description={selectedFile?.mimeType}
+        isOpen={isPreviewModalOpen}
+        title={selectedFile?.name ?? "File preview"}
+        onClose={closePreviewModal}
+      >
+        <div className="space-y-3">
+          <div className="min-h-[420px] overflow-hidden rounded-md border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
+            {!filePreviewUrl ? (
+              <div className="flex min-h-[420px] items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                Loading preview
+              </div>
+            ) : selectedFile?.mimeType.startsWith("image/") ? (
+              <img className="max-h-[70vh] w-full object-contain" src={filePreviewUrl} alt={selectedFile.name} />
+            ) : (
+              <iframe className="h-[70vh] w-full" src={filePreviewUrl} title={selectedFile?.name ?? "PDF preview"} />
+            )}
+          </div>
+          {selectedFile && (
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" type="button" onClick={() => void downloadFile(selectedFile)}>
+                <Download className="size-4" />
+                Download
+              </Button>
+              <Button type="button" onClick={closePreviewModal}>
+                Close
+              </Button>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        description="Resolve naming conflicts automatically inside the destination folder"
+        isOpen={isFileManageModalOpen}
+        title="Rename or move file"
+        onClose={() => setFileManageModalOpen(false)}
+      >
+        <form onSubmit={updateSelectedFile} className="space-y-4">
+          <Field label="File name" value={fileName} onChange={setFileName} />
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Destination folder</span>
+            <SelectControl ariaLabel="Destination folder" value={destinationFolderId} onChange={setDestinationFolderId}>
+              {flatFolders.map((folder) => (
+                <option key={folder.id} value={folder.id}>
+                  {findFolderPath(folders, folder.id).map((item) => item.name).join(" / ")}
+                </option>
+              ))}
+            </SelectControl>
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" type="button" onClick={() => setFileManageModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!fileName.trim() || !destinationFolderId}>
+              <MoveRight className="size-4" />
+              Save changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        description={shareTarget ? `Share ${shareTarget.label}` : "Create or revoke read-only access"}
+        isOpen={isShareModalOpen}
+        title="Share access"
+        onClose={() => setShareModalOpen(false)}
+      >
+        <div className="space-y-4">
+          <form onSubmit={createShare} className="space-y-3">
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Mode</span>
+              <SelectControl<ShareMode> ariaLabel="Share mode" value={shareMode} onChange={setShareMode}>
+                <option value="PUBLIC">Public link · anyone with link can view</option>
+                <option value="PERMISSIONED">Permissioned · selected user only</option>
+              </SelectControl>
+            </label>
+            {shareMode === "PERMISSIONED" && (
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Recipient</span>
+                <SelectControl ariaLabel="Share recipient" value={shareRecipientUserId} onChange={setShareRecipientUserId}>
+                  <option value="">Select user</option>
+                  {users.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.name} · {candidate.email}
+                    </option>
+                  ))}
+                </SelectControl>
+              </label>
+            )}
+            <Button type="submit" disabled={!shareTarget || (shareMode === "PERMISSIONED" && !shareRecipientUserId)}>
+              <Link2 className="size-4" />
+              Create read-only link
+            </Button>
+          </form>
+
+          <div className="rounded-md border border-slate-200 dark:border-slate-800">
+            <div className="border-b border-slate-200 px-3 py-2 text-sm font-medium dark:border-slate-800">
+              Active links
+            </div>
+            <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
+              {shares
+                .filter((share) => !share.revokedAt)
+                .map((share) => (
+                  <div key={share.id} className="flex items-center gap-2 p-3 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">
+                        {share.targetType.replace("_", " ")} · {share.mode}
+                      </p>
+                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                        {share.recipientUser ? `${share.recipientUser.name} · ${share.recipientUser.email}` : "Anyone with the link"}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="icon-sm" type="button" onClick={() => void copyShareLink(share)} title="Copy link">
+                      <Copy className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" type="button" onClick={() => void revokeShare(share.id)} title="Revoke">
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+              {!shares.filter((share) => !share.revokedAt).length && <EmptyState text="No active links" compact />}
+            </div>
+          </div>
+        </div>
+      </Modal>
     </main>
+  );
+}
+
+function SharedView({ payload, error }: { payload: SharedPayload | null; error: string }) {
+  if (error) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
+        <div className="max-w-md rounded-md border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <SectionTitle icon={AlertTriangle} title="Share unavailable" />
+          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{error}</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!payload) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          Loading shared content
+        </div>
+      </main>
+    );
+  }
+
+  const title =
+    payload.target.type === "DATA_ROOM"
+      ? payload.target.room.name
+      : payload.target.type === "FOLDER"
+        ? payload.target.folder.name
+        : payload.target.file.name;
+
+  return (
+    <main className="min-h-screen bg-slate-100 p-4 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
+      <section className="mx-auto max-w-5xl rounded-md border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="border-b border-slate-200 pb-4 dark:border-slate-800">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-sm bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+            <Link2 className="size-3.5" />
+            Read-only share
+          </div>
+          <h1 className="text-2xl font-semibold">{title}</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            {payload.target.type.replace("_", " ")} shared via public link
+          </p>
+        </div>
+
+        <div className="mt-4">
+          {payload.target.type === "FILE" && <SharedFileRow file={payload.target.file} />}
+          {payload.target.type === "FOLDER" && <SharedFolderTree folder={payload.target.folder} />}
+          {payload.target.type === "DATA_ROOM" && (
+            <div className="space-y-2">
+              {payload.target.folders.map((folder) => (
+                <SharedFolderTree key={folder.id} folder={folder} />
+              ))}
+              {!payload.target.folders.length && <EmptyState text="No shared folders yet" />}
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function SharedFolderTree({ folder, level = 0 }: { folder: SharedFolderNode; level?: number }) {
+  return (
+    <div className="space-y-1">
+      <div
+        className="flex min-h-9 items-center gap-2 rounded-md bg-slate-50 px-2 text-sm dark:bg-slate-950/60"
+        style={{ paddingLeft: `${8 + level * 16}px` }}
+      >
+        <Folder className="size-4 shrink-0 text-amber-600" />
+        <span className="font-medium">{folder.name}</span>
+        <span className="text-xs text-slate-400 dark:text-slate-500">{folder.files.length}</span>
+      </div>
+      <div className="space-y-1">
+        {folder.files.map((file) => (
+          <SharedFileRow key={file.id} file={file} level={level + 1} />
+        ))}
+        {folder.children.map((child) => (
+          <SharedFolderTree key={child.id} folder={child} level={level + 1} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SharedFileRow({ file, level = 0 }: { file: SharedFile; level?: number }) {
+  return (
+    <div
+      className="flex min-h-10 items-center gap-3 rounded-md px-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800/70"
+      style={{ paddingLeft: `${8 + level * 16}px` }}
+    >
+      {file.mimeType === "application/pdf" ? (
+        <FileText className="size-4 shrink-0 text-slate-600 dark:text-slate-300" />
+      ) : (
+        <FileImage className="size-4 shrink-0 text-slate-600 dark:text-slate-300" />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium">{file.name}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{formatBytes(file.size)}</p>
+      </div>
+      <Button variant="ghost" size="sm" type="button" onClick={() => window.open(`${API_URL}${file.previewUrl}`, "_blank")}>
+        <Eye className="size-4" />
+        Preview
+      </Button>
+      <Button variant="outline" size="sm" type="button" onClick={() => window.open(`${API_URL}${file.downloadUrl}`, "_blank")}>
+        <Download className="size-4" />
+        Download
+      </Button>
+    </div>
   );
 }
 

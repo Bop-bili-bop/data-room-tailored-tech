@@ -192,6 +192,7 @@ export type DataRoomWhereInput = {
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   members?: Prisma.DataRoomMemberListRelationFilter
   folders?: Prisma.FolderListRelationFilter
+  shares?: Prisma.ShareListRelationFilter
 }
 
 export type DataRoomOrderByWithRelationInput = {
@@ -204,6 +205,7 @@ export type DataRoomOrderByWithRelationInput = {
   owner?: Prisma.UserOrderByWithRelationInput
   members?: Prisma.DataRoomMemberOrderByRelationAggregateInput
   folders?: Prisma.FolderOrderByRelationAggregateInput
+  shares?: Prisma.ShareOrderByRelationAggregateInput
 }
 
 export type DataRoomWhereUniqueInput = Prisma.AtLeast<{
@@ -219,6 +221,7 @@ export type DataRoomWhereUniqueInput = Prisma.AtLeast<{
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   members?: Prisma.DataRoomMemberListRelationFilter
   folders?: Prisma.FolderListRelationFilter
+  shares?: Prisma.ShareListRelationFilter
 }, "id">
 
 export type DataRoomOrderByWithAggregationInput = {
@@ -254,6 +257,7 @@ export type DataRoomCreateInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedDataRoomsInput
   members?: Prisma.DataRoomMemberCreateNestedManyWithoutDataRoomInput
   folders?: Prisma.FolderCreateNestedManyWithoutDataRoomInput
+  shares?: Prisma.ShareCreateNestedManyWithoutDataRoomInput
 }
 
 export type DataRoomUncheckedCreateInput = {
@@ -265,6 +269,7 @@ export type DataRoomUncheckedCreateInput = {
   updatedAt?: Date | string
   members?: Prisma.DataRoomMemberUncheckedCreateNestedManyWithoutDataRoomInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutDataRoomInput
+  shares?: Prisma.ShareUncheckedCreateNestedManyWithoutDataRoomInput
 }
 
 export type DataRoomUpdateInput = {
@@ -276,6 +281,7 @@ export type DataRoomUpdateInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedDataRoomsNestedInput
   members?: Prisma.DataRoomMemberUpdateManyWithoutDataRoomNestedInput
   folders?: Prisma.FolderUpdateManyWithoutDataRoomNestedInput
+  shares?: Prisma.ShareUpdateManyWithoutDataRoomNestedInput
 }
 
 export type DataRoomUncheckedUpdateInput = {
@@ -287,6 +293,7 @@ export type DataRoomUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   members?: Prisma.DataRoomMemberUncheckedUpdateManyWithoutDataRoomNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutDataRoomNestedInput
+  shares?: Prisma.ShareUncheckedUpdateManyWithoutDataRoomNestedInput
 }
 
 export type DataRoomCreateManyInput = {
@@ -439,6 +446,20 @@ export type DataRoomUncheckedUpdateManyWithoutOwnerNestedInput = {
   deleteMany?: Prisma.DataRoomScalarWhereInput | Prisma.DataRoomScalarWhereInput[]
 }
 
+export type DataRoomCreateNestedOneWithoutSharesInput = {
+  create?: Prisma.XOR<Prisma.DataRoomCreateWithoutSharesInput, Prisma.DataRoomUncheckedCreateWithoutSharesInput>
+  connectOrCreate?: Prisma.DataRoomCreateOrConnectWithoutSharesInput
+  connect?: Prisma.DataRoomWhereUniqueInput
+}
+
+export type DataRoomUpdateOneRequiredWithoutSharesNestedInput = {
+  create?: Prisma.XOR<Prisma.DataRoomCreateWithoutSharesInput, Prisma.DataRoomUncheckedCreateWithoutSharesInput>
+  connectOrCreate?: Prisma.DataRoomCreateOrConnectWithoutSharesInput
+  upsert?: Prisma.DataRoomUpsertWithoutSharesInput
+  connect?: Prisma.DataRoomWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.DataRoomUpdateToOneWithWhereWithoutSharesInput, Prisma.DataRoomUpdateWithoutSharesInput>, Prisma.DataRoomUncheckedUpdateWithoutSharesInput>
+}
+
 export type DataRoomCreateWithoutMembersInput = {
   id?: string
   name: string
@@ -447,6 +468,7 @@ export type DataRoomCreateWithoutMembersInput = {
   updatedAt?: Date | string
   owner: Prisma.UserCreateNestedOneWithoutOwnedDataRoomsInput
   folders?: Prisma.FolderCreateNestedManyWithoutDataRoomInput
+  shares?: Prisma.ShareCreateNestedManyWithoutDataRoomInput
 }
 
 export type DataRoomUncheckedCreateWithoutMembersInput = {
@@ -457,6 +479,7 @@ export type DataRoomUncheckedCreateWithoutMembersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutDataRoomInput
+  shares?: Prisma.ShareUncheckedCreateNestedManyWithoutDataRoomInput
 }
 
 export type DataRoomCreateOrConnectWithoutMembersInput = {
@@ -483,6 +506,7 @@ export type DataRoomUpdateWithoutMembersInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedDataRoomsNestedInput
   folders?: Prisma.FolderUpdateManyWithoutDataRoomNestedInput
+  shares?: Prisma.ShareUpdateManyWithoutDataRoomNestedInput
 }
 
 export type DataRoomUncheckedUpdateWithoutMembersInput = {
@@ -493,6 +517,7 @@ export type DataRoomUncheckedUpdateWithoutMembersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   folders?: Prisma.FolderUncheckedUpdateManyWithoutDataRoomNestedInput
+  shares?: Prisma.ShareUncheckedUpdateManyWithoutDataRoomNestedInput
 }
 
 export type DataRoomCreateWithoutFoldersInput = {
@@ -503,6 +528,7 @@ export type DataRoomCreateWithoutFoldersInput = {
   updatedAt?: Date | string
   owner: Prisma.UserCreateNestedOneWithoutOwnedDataRoomsInput
   members?: Prisma.DataRoomMemberCreateNestedManyWithoutDataRoomInput
+  shares?: Prisma.ShareCreateNestedManyWithoutDataRoomInput
 }
 
 export type DataRoomUncheckedCreateWithoutFoldersInput = {
@@ -513,6 +539,7 @@ export type DataRoomUncheckedCreateWithoutFoldersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   members?: Prisma.DataRoomMemberUncheckedCreateNestedManyWithoutDataRoomInput
+  shares?: Prisma.ShareUncheckedCreateNestedManyWithoutDataRoomInput
 }
 
 export type DataRoomCreateOrConnectWithoutFoldersInput = {
@@ -539,6 +566,7 @@ export type DataRoomUpdateWithoutFoldersInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedDataRoomsNestedInput
   members?: Prisma.DataRoomMemberUpdateManyWithoutDataRoomNestedInput
+  shares?: Prisma.ShareUpdateManyWithoutDataRoomNestedInput
 }
 
 export type DataRoomUncheckedUpdateWithoutFoldersInput = {
@@ -549,6 +577,7 @@ export type DataRoomUncheckedUpdateWithoutFoldersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   members?: Prisma.DataRoomMemberUncheckedUpdateManyWithoutDataRoomNestedInput
+  shares?: Prisma.ShareUncheckedUpdateManyWithoutDataRoomNestedInput
 }
 
 export type DataRoomCreateWithoutOwnerInput = {
@@ -559,6 +588,7 @@ export type DataRoomCreateWithoutOwnerInput = {
   updatedAt?: Date | string
   members?: Prisma.DataRoomMemberCreateNestedManyWithoutDataRoomInput
   folders?: Prisma.FolderCreateNestedManyWithoutDataRoomInput
+  shares?: Prisma.ShareCreateNestedManyWithoutDataRoomInput
 }
 
 export type DataRoomUncheckedCreateWithoutOwnerInput = {
@@ -569,6 +599,7 @@ export type DataRoomUncheckedCreateWithoutOwnerInput = {
   updatedAt?: Date | string
   members?: Prisma.DataRoomMemberUncheckedCreateNestedManyWithoutDataRoomInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutDataRoomInput
+  shares?: Prisma.ShareUncheckedCreateNestedManyWithoutDataRoomInput
 }
 
 export type DataRoomCreateOrConnectWithoutOwnerInput = {
@@ -609,6 +640,66 @@ export type DataRoomScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"DataRoom"> | Date | string
 }
 
+export type DataRoomCreateWithoutSharesInput = {
+  id?: string
+  name: string
+  description?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  owner: Prisma.UserCreateNestedOneWithoutOwnedDataRoomsInput
+  members?: Prisma.DataRoomMemberCreateNestedManyWithoutDataRoomInput
+  folders?: Prisma.FolderCreateNestedManyWithoutDataRoomInput
+}
+
+export type DataRoomUncheckedCreateWithoutSharesInput = {
+  id?: string
+  name: string
+  description?: string | null
+  ownerId: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  members?: Prisma.DataRoomMemberUncheckedCreateNestedManyWithoutDataRoomInput
+  folders?: Prisma.FolderUncheckedCreateNestedManyWithoutDataRoomInput
+}
+
+export type DataRoomCreateOrConnectWithoutSharesInput = {
+  where: Prisma.DataRoomWhereUniqueInput
+  create: Prisma.XOR<Prisma.DataRoomCreateWithoutSharesInput, Prisma.DataRoomUncheckedCreateWithoutSharesInput>
+}
+
+export type DataRoomUpsertWithoutSharesInput = {
+  update: Prisma.XOR<Prisma.DataRoomUpdateWithoutSharesInput, Prisma.DataRoomUncheckedUpdateWithoutSharesInput>
+  create: Prisma.XOR<Prisma.DataRoomCreateWithoutSharesInput, Prisma.DataRoomUncheckedCreateWithoutSharesInput>
+  where?: Prisma.DataRoomWhereInput
+}
+
+export type DataRoomUpdateToOneWithWhereWithoutSharesInput = {
+  where?: Prisma.DataRoomWhereInput
+  data: Prisma.XOR<Prisma.DataRoomUpdateWithoutSharesInput, Prisma.DataRoomUncheckedUpdateWithoutSharesInput>
+}
+
+export type DataRoomUpdateWithoutSharesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  owner?: Prisma.UserUpdateOneRequiredWithoutOwnedDataRoomsNestedInput
+  members?: Prisma.DataRoomMemberUpdateManyWithoutDataRoomNestedInput
+  folders?: Prisma.FolderUpdateManyWithoutDataRoomNestedInput
+}
+
+export type DataRoomUncheckedUpdateWithoutSharesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ownerId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  members?: Prisma.DataRoomMemberUncheckedUpdateManyWithoutDataRoomNestedInput
+  folders?: Prisma.FolderUncheckedUpdateManyWithoutDataRoomNestedInput
+}
+
 export type DataRoomCreateManyOwnerInput = {
   id?: string
   name: string
@@ -625,6 +716,7 @@ export type DataRoomUpdateWithoutOwnerInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   members?: Prisma.DataRoomMemberUpdateManyWithoutDataRoomNestedInput
   folders?: Prisma.FolderUpdateManyWithoutDataRoomNestedInput
+  shares?: Prisma.ShareUpdateManyWithoutDataRoomNestedInput
 }
 
 export type DataRoomUncheckedUpdateWithoutOwnerInput = {
@@ -635,6 +727,7 @@ export type DataRoomUncheckedUpdateWithoutOwnerInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   members?: Prisma.DataRoomMemberUncheckedUpdateManyWithoutDataRoomNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutDataRoomNestedInput
+  shares?: Prisma.ShareUncheckedUpdateManyWithoutDataRoomNestedInput
 }
 
 export type DataRoomUncheckedUpdateManyWithoutOwnerInput = {
@@ -653,11 +746,13 @@ export type DataRoomUncheckedUpdateManyWithoutOwnerInput = {
 export type DataRoomCountOutputType = {
   members: number
   folders: number
+  shares: number
 }
 
 export type DataRoomCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   members?: boolean | DataRoomCountOutputTypeCountMembersArgs
   folders?: boolean | DataRoomCountOutputTypeCountFoldersArgs
+  shares?: boolean | DataRoomCountOutputTypeCountSharesArgs
 }
 
 /**
@@ -684,6 +779,13 @@ export type DataRoomCountOutputTypeCountFoldersArgs<ExtArgs extends runtime.Type
   where?: Prisma.FolderWhereInput
 }
 
+/**
+ * DataRoomCountOutputType without action
+ */
+export type DataRoomCountOutputTypeCountSharesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ShareWhereInput
+}
+
 
 export type DataRoomSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -695,6 +797,7 @@ export type DataRoomSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   members?: boolean | Prisma.DataRoom$membersArgs<ExtArgs>
   folders?: boolean | Prisma.DataRoom$foldersArgs<ExtArgs>
+  shares?: boolean | Prisma.DataRoom$sharesArgs<ExtArgs>
   _count?: boolean | Prisma.DataRoomCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["dataRoom"]>
 
@@ -732,6 +835,7 @@ export type DataRoomInclude<ExtArgs extends runtime.Types.Extensions.InternalArg
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   members?: boolean | Prisma.DataRoom$membersArgs<ExtArgs>
   folders?: boolean | Prisma.DataRoom$foldersArgs<ExtArgs>
+  shares?: boolean | Prisma.DataRoom$sharesArgs<ExtArgs>
   _count?: boolean | Prisma.DataRoomCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type DataRoomIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -747,6 +851,7 @@ export type $DataRoomPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     owner: Prisma.$UserPayload<ExtArgs>
     members: Prisma.$DataRoomMemberPayload<ExtArgs>[]
     folders: Prisma.$FolderPayload<ExtArgs>[]
+    shares: Prisma.$SharePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1152,6 +1257,7 @@ export interface Prisma__DataRoomClient<T, Null = never, ExtArgs extends runtime
   owner<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   members<T extends Prisma.DataRoom$membersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DataRoom$membersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DataRoomMemberPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   folders<T extends Prisma.DataRoom$foldersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DataRoom$foldersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FolderPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  shares<T extends Prisma.DataRoom$sharesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DataRoom$sharesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SharePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1633,6 +1739,30 @@ export type DataRoom$foldersArgs<ExtArgs extends runtime.Types.Extensions.Intern
   take?: number
   skip?: number
   distinct?: Prisma.FolderScalarFieldEnum | Prisma.FolderScalarFieldEnum[]
+}
+
+/**
+ * DataRoom.shares
+ */
+export type DataRoom$sharesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Share
+   */
+  select?: Prisma.ShareSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Share
+   */
+  omit?: Prisma.ShareOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareInclude<ExtArgs> | null
+  where?: Prisma.ShareWhereInput
+  orderBy?: Prisma.ShareOrderByWithRelationInput | Prisma.ShareOrderByWithRelationInput[]
+  cursor?: Prisma.ShareWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ShareScalarFieldEnum | Prisma.ShareScalarFieldEnum[]
 }
 
 /**

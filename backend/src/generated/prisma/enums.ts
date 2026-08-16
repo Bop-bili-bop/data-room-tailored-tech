@@ -15,3 +15,20 @@ export const Role = {
 } as const
 
 export type Role = (typeof Role)[keyof typeof Role]
+
+
+export const ShareTargetType = {
+  DATA_ROOM: 'DATA_ROOM',
+  FOLDER: 'FOLDER',
+  FILE: 'FILE'
+} as const
+
+export type ShareTargetType = (typeof ShareTargetType)[keyof typeof ShareTargetType]
+
+
+export const ShareMode = {
+  PUBLIC: 'PUBLIC',
+  PERMISSIONED: 'PERMISSIONED'
+} as const
+
+export type ShareMode = (typeof ShareMode)[keyof typeof ShareMode]

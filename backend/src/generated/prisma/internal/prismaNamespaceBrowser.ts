@@ -54,7 +54,8 @@ export const ModelName = {
   DataRoomMember: 'DataRoomMember',
   Folder: 'Folder',
   File: 'File',
-  User: 'User'
+  User: 'User',
+  Share: 'Share'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -115,6 +116,7 @@ export const FileScalarFieldEnum = {
   originalName: 'originalName',
   mimeType: 'mimeType',
   size: 'size',
+  version: 'version',
   storageKey: 'storageKey',
   folderId: 'folderId',
   uploadedById: 'uploadedById',
@@ -135,6 +137,23 @@ export const UserScalarFieldEnum = {
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+
+
+export const ShareScalarFieldEnum = {
+  id: 'id',
+  dataRoomId: 'dataRoomId',
+  targetType: 'targetType',
+  targetId: 'targetId',
+  mode: 'mode',
+  token: 'token',
+  createdById: 'createdById',
+  recipientUserId: 'recipientUserId',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ShareScalarFieldEnum = (typeof ShareScalarFieldEnum)[keyof typeof ShareScalarFieldEnum]
 
 
 export const SortOrder = {

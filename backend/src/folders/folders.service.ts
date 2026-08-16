@@ -151,6 +151,32 @@ export class FoldersService {
     });
   }
 
+  async getDeleteImpact(dataRoomId: string, folderId: string, userId: string) {
+    const member = await this.getDataRoomMember(dataRoomId, userId);
+    if (member.role === 'VIEWER') {
+      throw new ForbiddenException('Viewers cannot delete folders');
+    }
+
+    await this.ensureFolderInDataRoom(dataRoomId, folderId);
+
+    const folderIds = await this.collectFolderAndDescendantIds(
+      dataRoomId,
+      folderId,
+    );
+    const fileCount = await this.prisma.file.count({
+      where: {
+        folderId: {
+          in: folderIds,
+        },
+      },
+    });
+
+    return {
+      folderCount: folderIds.length,
+      fileCount,
+    };
+  }
+
   async remove(dataRoomId: string, folderId: string, userId: string) {
     const folder = await this.prisma.folder.findUnique({
       where: {
@@ -221,6 +247,25 @@ export class FoldersService {
     }
 
     return member;
+  }
+
+  private async ensureFolderInDataRoom(
+    dataRoomId: string,
+    folderId: string,
+  ): Promise<void> {
+    const folder = await this.prisma.folder.findFirst({
+      where: {
+        id: folderId,
+        dataRoomId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!folder) {
+      throw new NotFoundException('Folder not found');
+    }
   }
 
   private async collectFolderAndDescendantIds(

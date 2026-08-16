@@ -27,10 +27,12 @@ export type AggregateFile = {
 
 export type FileAvgAggregateOutputType = {
   size: number | null
+  version: number | null
 }
 
 export type FileSumAggregateOutputType = {
   size: number | null
+  version: number | null
 }
 
 export type FileMinAggregateOutputType = {
@@ -39,6 +41,7 @@ export type FileMinAggregateOutputType = {
   originalName: string | null
   mimeType: string | null
   size: number | null
+  version: number | null
   storageKey: string | null
   folderId: string | null
   uploadedById: string | null
@@ -52,6 +55,7 @@ export type FileMaxAggregateOutputType = {
   originalName: string | null
   mimeType: string | null
   size: number | null
+  version: number | null
   storageKey: string | null
   folderId: string | null
   uploadedById: string | null
@@ -65,6 +69,7 @@ export type FileCountAggregateOutputType = {
   originalName: number
   mimeType: number
   size: number
+  version: number
   storageKey: number
   folderId: number
   uploadedById: number
@@ -76,10 +81,12 @@ export type FileCountAggregateOutputType = {
 
 export type FileAvgAggregateInputType = {
   size?: true
+  version?: true
 }
 
 export type FileSumAggregateInputType = {
   size?: true
+  version?: true
 }
 
 export type FileMinAggregateInputType = {
@@ -88,6 +95,7 @@ export type FileMinAggregateInputType = {
   originalName?: true
   mimeType?: true
   size?: true
+  version?: true
   storageKey?: true
   folderId?: true
   uploadedById?: true
@@ -101,6 +109,7 @@ export type FileMaxAggregateInputType = {
   originalName?: true
   mimeType?: true
   size?: true
+  version?: true
   storageKey?: true
   folderId?: true
   uploadedById?: true
@@ -114,6 +123,7 @@ export type FileCountAggregateInputType = {
   originalName?: true
   mimeType?: true
   size?: true
+  version?: true
   storageKey?: true
   folderId?: true
   uploadedById?: true
@@ -214,6 +224,7 @@ export type FileGroupByOutputType = {
   originalName: string
   mimeType: string
   size: number
+  version: number
   storageKey: string
   folderId: string
   uploadedById: string
@@ -250,6 +261,7 @@ export type FileWhereInput = {
   originalName?: Prisma.StringFilter<"File"> | string
   mimeType?: Prisma.StringFilter<"File"> | string
   size?: Prisma.IntFilter<"File"> | number
+  version?: Prisma.IntFilter<"File"> | number
   storageKey?: Prisma.StringFilter<"File"> | string
   folderId?: Prisma.StringFilter<"File"> | string
   uploadedById?: Prisma.StringFilter<"File"> | string
@@ -265,6 +277,7 @@ export type FileOrderByWithRelationInput = {
   originalName?: Prisma.SortOrder
   mimeType?: Prisma.SortOrder
   size?: Prisma.SortOrder
+  version?: Prisma.SortOrder
   storageKey?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   uploadedById?: Prisma.SortOrder
@@ -283,6 +296,7 @@ export type FileWhereUniqueInput = Prisma.AtLeast<{
   originalName?: Prisma.StringFilter<"File"> | string
   mimeType?: Prisma.StringFilter<"File"> | string
   size?: Prisma.IntFilter<"File"> | number
+  version?: Prisma.IntFilter<"File"> | number
   storageKey?: Prisma.StringFilter<"File"> | string
   folderId?: Prisma.StringFilter<"File"> | string
   uploadedById?: Prisma.StringFilter<"File"> | string
@@ -298,6 +312,7 @@ export type FileOrderByWithAggregationInput = {
   originalName?: Prisma.SortOrder
   mimeType?: Prisma.SortOrder
   size?: Prisma.SortOrder
+  version?: Prisma.SortOrder
   storageKey?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   uploadedById?: Prisma.SortOrder
@@ -319,6 +334,7 @@ export type FileScalarWhereWithAggregatesInput = {
   originalName?: Prisma.StringWithAggregatesFilter<"File"> | string
   mimeType?: Prisma.StringWithAggregatesFilter<"File"> | string
   size?: Prisma.IntWithAggregatesFilter<"File"> | number
+  version?: Prisma.IntWithAggregatesFilter<"File"> | number
   storageKey?: Prisma.StringWithAggregatesFilter<"File"> | string
   folderId?: Prisma.StringWithAggregatesFilter<"File"> | string
   uploadedById?: Prisma.StringWithAggregatesFilter<"File"> | string
@@ -332,6 +348,7 @@ export type FileCreateInput = {
   originalName: string
   mimeType: string
   size: number
+  version?: number
   storageKey: string
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -345,6 +362,7 @@ export type FileUncheckedCreateInput = {
   originalName: string
   mimeType: string
   size: number
+  version?: number
   storageKey: string
   folderId: string
   uploadedById: string
@@ -358,6 +376,7 @@ export type FileUpdateInput = {
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   size?: Prisma.IntFieldUpdateOperationsInput | number
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   storageKey?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -371,6 +390,7 @@ export type FileUncheckedUpdateInput = {
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   size?: Prisma.IntFieldUpdateOperationsInput | number
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   storageKey?: Prisma.StringFieldUpdateOperationsInput | string
   folderId?: Prisma.StringFieldUpdateOperationsInput | string
   uploadedById?: Prisma.StringFieldUpdateOperationsInput | string
@@ -384,6 +404,7 @@ export type FileCreateManyInput = {
   originalName: string
   mimeType: string
   size: number
+  version?: number
   storageKey: string
   folderId: string
   uploadedById: string
@@ -397,6 +418,7 @@ export type FileUpdateManyMutationInput = {
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   size?: Prisma.IntFieldUpdateOperationsInput | number
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   storageKey?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -408,6 +430,7 @@ export type FileUncheckedUpdateManyInput = {
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   size?: Prisma.IntFieldUpdateOperationsInput | number
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   storageKey?: Prisma.StringFieldUpdateOperationsInput | string
   folderId?: Prisma.StringFieldUpdateOperationsInput | string
   uploadedById?: Prisma.StringFieldUpdateOperationsInput | string
@@ -431,6 +454,7 @@ export type FileCountOrderByAggregateInput = {
   originalName?: Prisma.SortOrder
   mimeType?: Prisma.SortOrder
   size?: Prisma.SortOrder
+  version?: Prisma.SortOrder
   storageKey?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   uploadedById?: Prisma.SortOrder
@@ -440,6 +464,7 @@ export type FileCountOrderByAggregateInput = {
 
 export type FileAvgOrderByAggregateInput = {
   size?: Prisma.SortOrder
+  version?: Prisma.SortOrder
 }
 
 export type FileMaxOrderByAggregateInput = {
@@ -448,6 +473,7 @@ export type FileMaxOrderByAggregateInput = {
   originalName?: Prisma.SortOrder
   mimeType?: Prisma.SortOrder
   size?: Prisma.SortOrder
+  version?: Prisma.SortOrder
   storageKey?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   uploadedById?: Prisma.SortOrder
@@ -461,6 +487,7 @@ export type FileMinOrderByAggregateInput = {
   originalName?: Prisma.SortOrder
   mimeType?: Prisma.SortOrder
   size?: Prisma.SortOrder
+  version?: Prisma.SortOrder
   storageKey?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   uploadedById?: Prisma.SortOrder
@@ -470,6 +497,7 @@ export type FileMinOrderByAggregateInput = {
 
 export type FileSumOrderByAggregateInput = {
   size?: Prisma.SortOrder
+  version?: Prisma.SortOrder
 }
 
 export type FileCreateNestedManyWithoutFolderInput = {
@@ -570,6 +598,7 @@ export type FileCreateWithoutFolderInput = {
   originalName: string
   mimeType: string
   size: number
+  version?: number
   storageKey: string
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -582,6 +611,7 @@ export type FileUncheckedCreateWithoutFolderInput = {
   originalName: string
   mimeType: string
   size: number
+  version?: number
   storageKey: string
   uploadedById: string
   createdAt?: Date | string
@@ -623,6 +653,7 @@ export type FileScalarWhereInput = {
   originalName?: Prisma.StringFilter<"File"> | string
   mimeType?: Prisma.StringFilter<"File"> | string
   size?: Prisma.IntFilter<"File"> | number
+  version?: Prisma.IntFilter<"File"> | number
   storageKey?: Prisma.StringFilter<"File"> | string
   folderId?: Prisma.StringFilter<"File"> | string
   uploadedById?: Prisma.StringFilter<"File"> | string
@@ -636,6 +667,7 @@ export type FileCreateWithoutUploadedByInput = {
   originalName: string
   mimeType: string
   size: number
+  version?: number
   storageKey: string
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -648,6 +680,7 @@ export type FileUncheckedCreateWithoutUploadedByInput = {
   originalName: string
   mimeType: string
   size: number
+  version?: number
   storageKey: string
   folderId: string
   createdAt?: Date | string
@@ -686,6 +719,7 @@ export type FileCreateManyFolderInput = {
   originalName: string
   mimeType: string
   size: number
+  version?: number
   storageKey: string
   uploadedById: string
   createdAt?: Date | string
@@ -698,6 +732,7 @@ export type FileUpdateWithoutFolderInput = {
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   size?: Prisma.IntFieldUpdateOperationsInput | number
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   storageKey?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -710,6 +745,7 @@ export type FileUncheckedUpdateWithoutFolderInput = {
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   size?: Prisma.IntFieldUpdateOperationsInput | number
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   storageKey?: Prisma.StringFieldUpdateOperationsInput | string
   uploadedById?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -722,6 +758,7 @@ export type FileUncheckedUpdateManyWithoutFolderInput = {
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   size?: Prisma.IntFieldUpdateOperationsInput | number
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   storageKey?: Prisma.StringFieldUpdateOperationsInput | string
   uploadedById?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -734,6 +771,7 @@ export type FileCreateManyUploadedByInput = {
   originalName: string
   mimeType: string
   size: number
+  version?: number
   storageKey: string
   folderId: string
   createdAt?: Date | string
@@ -746,6 +784,7 @@ export type FileUpdateWithoutUploadedByInput = {
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   size?: Prisma.IntFieldUpdateOperationsInput | number
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   storageKey?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -758,6 +797,7 @@ export type FileUncheckedUpdateWithoutUploadedByInput = {
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   size?: Prisma.IntFieldUpdateOperationsInput | number
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   storageKey?: Prisma.StringFieldUpdateOperationsInput | string
   folderId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -770,6 +810,7 @@ export type FileUncheckedUpdateManyWithoutUploadedByInput = {
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   size?: Prisma.IntFieldUpdateOperationsInput | number
+  version?: Prisma.IntFieldUpdateOperationsInput | number
   storageKey?: Prisma.StringFieldUpdateOperationsInput | string
   folderId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -784,6 +825,7 @@ export type FileSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   originalName?: boolean
   mimeType?: boolean
   size?: boolean
+  version?: boolean
   storageKey?: boolean
   folderId?: boolean
   uploadedById?: boolean
@@ -799,6 +841,7 @@ export type FileSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   originalName?: boolean
   mimeType?: boolean
   size?: boolean
+  version?: boolean
   storageKey?: boolean
   folderId?: boolean
   uploadedById?: boolean
@@ -814,6 +857,7 @@ export type FileSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   originalName?: boolean
   mimeType?: boolean
   size?: boolean
+  version?: boolean
   storageKey?: boolean
   folderId?: boolean
   uploadedById?: boolean
@@ -829,6 +873,7 @@ export type FileSelectScalar = {
   originalName?: boolean
   mimeType?: boolean
   size?: boolean
+  version?: boolean
   storageKey?: boolean
   folderId?: boolean
   uploadedById?: boolean
@@ -836,7 +881,7 @@ export type FileSelectScalar = {
   updatedAt?: boolean
 }
 
-export type FileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "originalName" | "mimeType" | "size" | "storageKey" | "folderId" | "uploadedById" | "createdAt" | "updatedAt", ExtArgs["result"]["file"]>
+export type FileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "originalName" | "mimeType" | "size" | "version" | "storageKey" | "folderId" | "uploadedById" | "createdAt" | "updatedAt", ExtArgs["result"]["file"]>
 export type FileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   folder?: boolean | Prisma.FolderDefaultArgs<ExtArgs>
   uploadedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -862,6 +907,7 @@ export type $FilePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     originalName: string
     mimeType: string
     size: number
+    version: number
     storageKey: string
     folderId: string
     uploadedById: string
@@ -1297,6 +1343,7 @@ export interface FileFieldRefs {
   readonly originalName: Prisma.FieldRef<"File", 'String'>
   readonly mimeType: Prisma.FieldRef<"File", 'String'>
   readonly size: Prisma.FieldRef<"File", 'Int'>
+  readonly version: Prisma.FieldRef<"File", 'Int'>
   readonly storageKey: Prisma.FieldRef<"File", 'String'>
   readonly folderId: Prisma.FieldRef<"File", 'String'>
   readonly uploadedById: Prisma.FieldRef<"File", 'String'>

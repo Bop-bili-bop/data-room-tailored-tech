@@ -54,6 +54,15 @@ export class FoldersController {
     return this.foldersService.findTree(dataRoomId, req.user.id);
   }
 
+  @Get(':id/delete-impact')
+  getDeleteImpact(
+    @Param('dataRoomId') dataRoomId: string,
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.foldersService.getDeleteImpact(dataRoomId, id, req.user.id);
+  }
+
   @Patch(':id')
   update(
     @Param('dataRoomId') dataRoomId: string,

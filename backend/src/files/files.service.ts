@@ -14,6 +14,7 @@ import type {
   File as PrismaFile,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { UpdateFileDto } from './dto/update-file.dto';
 
 const ALLOWED_FILE_TYPES = new Map<string, readonly string[]>([
   ['application/pdf', ['.pdf']],
@@ -47,6 +48,10 @@ export class FilesService {
     }
 
     await this.ensureFolderExists(dataRoomId, folderId);
+    const displayName = await this.resolveAvailableFileName(
+      folderId,
+      file.originalname,
+    );
 
     const safeFileName = this.createStoredFileName(file.originalname);
     const storageKey = join(
@@ -76,7 +81,7 @@ export class FilesService {
     try {
       return await this.prisma.file.create({
         data: {
-          name: file.originalname,
+          name: displayName,
           originalName: file.originalname,
           mimeType: file.mimetype,
           size: file.size,
@@ -89,6 +94,17 @@ export class FilesService {
       await unlink(uploadPath);
       throw error;
     }
+  }
+
+  createMany(
+    dataRoomId: string,
+    folderId: string,
+    userId: string,
+    files: Express.Multer.File[],
+  ): Promise<PrismaFile[]> {
+    return Promise.all(
+      files.map((file) => this.create(dataRoomId, folderId, userId, file)),
+    );
   }
 
   async findAll(
@@ -129,6 +145,55 @@ export class FilesService {
       file,
       path,
     };
+  }
+
+  getPreview(
+    dataRoomId: string,
+    fileId: string,
+    userId: string,
+  ): Promise<DownloadableFile> {
+    return this.getDownload(dataRoomId, fileId, userId);
+  }
+
+  async update(
+    dataRoomId: string,
+    fileId: string,
+    userId: string,
+    dto: UpdateFileDto,
+  ): Promise<PrismaFile> {
+    if (!dto.name && !dto.folderId) {
+      throw new BadRequestException('Name or destination folder is required');
+    }
+
+    const member = await this.getDataRoomMember(dataRoomId, userId);
+    if (member.role === 'VIEWER') {
+      throw new ForbiddenException('Viewers cannot update files');
+    }
+
+    const file = await this.findFileInDataRoom(dataRoomId, fileId);
+    const nextFolderId = dto.folderId ?? file.folderId;
+
+    if (dto.folderId) {
+      await this.ensureFolderExists(dataRoomId, dto.folderId);
+    }
+
+    const nextName = dto.name?.trim() || file.name;
+    const resolvedName = await this.resolveAvailableFileName(
+      nextFolderId,
+      nextName,
+      file.id,
+    );
+
+    return this.prisma.file.update({
+      where: {
+        id: fileId,
+      },
+      data: {
+        folderId: nextFolderId,
+        name: resolvedName,
+        version: resolvedName === nextName ? file.version : file.version + 1,
+      },
+    });
   }
 
   async remove(
@@ -250,5 +315,42 @@ export class FilesService {
       .toLowerCase();
 
     return `${randomUUID()}-${baseName || 'file'}${extension.toLowerCase()}`;
+  }
+
+  private async resolveAvailableFileName(
+    folderId: string,
+    requestedName: string,
+    currentFileId?: string,
+  ): Promise<string> {
+    const trimmedName = requestedName.trim();
+    if (!trimmedName) {
+      throw new BadRequestException('File name is required');
+    }
+
+    const extension = extname(trimmedName);
+    const baseName = extension
+      ? trimmedName.slice(0, trimmedName.length - extension.length)
+      : trimmedName;
+
+    for (let version = 1; version <= 1000; version += 1) {
+      const candidate =
+        version === 1 ? trimmedName : `${baseName} (${version})${extension}`;
+      const existing = await this.prisma.file.findFirst({
+        where: {
+          folderId,
+          name: candidate,
+          ...(currentFileId ? { id: { not: currentFileId } } : {}),
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!existing) {
+        return candidate;
+      }
+    }
+
+    throw new BadRequestException('Could not resolve file name conflict');
   }
 }
