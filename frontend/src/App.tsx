@@ -1,122 +1,1487 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import {
+  Building2,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  FileImage,
+  FileText,
+  Folder,
+  FolderPlus,
+  LogOut,
+  Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  Pencil,
+  Plus,
+  RefreshCcw,
+  Search,
+  Shield,
+  Sun,
+  Trash2,
+  Upload,
+  Users,
+  X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
-function App() {
-  const [count, setCount] = useState(0)
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:3000";
+const TOKEN_KEY = "data-room-token";
+const THEME_KEY = "data-room-theme";
 
-      <div className="ticks"></div>
+type Role = "OWNER" | "EDITOR" | "VIEWER";
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+type User = {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+type DataRoom = {
+  id: string;
+  name: string;
+  description?: string | null;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+  owner?: Pick<User, "id" | "name" | "email">;
+};
+
+type Member = {
+  id: string;
+  dataRoomId: string;
+  userId: string;
+  role: Role;
+  createdAt: string;
+  updatedAt: string;
+  user: Pick<User, "id" | "name" | "email">;
+};
+
+type StoredFile = {
+  id: string;
+  name: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  storageKey: string;
+  folderId: string;
+  uploadedById: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type FolderNode = {
+  id: string;
+  name: string;
+  dataRoomId: string;
+  parentId: string | null;
+  files: StoredFile[];
+  children: FolderNode[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+type AuthMode = "login" | "register";
+type Theme = "light" | "dark";
+
+type ApiOptions = RequestInit & {
+  token?: string | null;
+};
+
+class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
 }
 
-export default App
+async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const { token, headers, ...requestOptions } = options;
+  const response = await fetch(`${API_URL}${path}`, {
+    ...requestOptions,
+    headers: {
+      ...(requestOptions.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new ApiError(payload?.message ?? "Request failed", response.status);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+function formatBytes(size: number) {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function flattenFolders(folders: FolderNode[]): FolderNode[] {
+  return folders.flatMap((folder) => [folder, ...flattenFolders(folder.children)]);
+}
+
+function findFolderPath(folders: FolderNode[], folderId: string | null): FolderNode[] {
+  if (!folderId) {
+    return [];
+  }
+
+  for (const folder of folders) {
+    if (folder.id === folderId) {
+      return [folder];
+    }
+
+    const childPath = findFolderPath(folder.children, folderId);
+
+    if (childPath.length) {
+      return [folder, ...childPath];
+    }
+  }
+
+  return [];
+}
+
+function App() {
+  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
+  const [theme, setTheme] = useState<Theme>(() => {
+    const savedTheme = localStorage.getItem(THEME_KEY);
+
+    if (savedTheme === "light" || savedTheme === "dark") {
+      return savedTheme;
+    }
+
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+  const [user, setUser] = useState<User | null>(null);
+  const [rooms, setRooms] = useState<DataRoom[]>([]);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [folders, setFolders] = useState<FolderNode[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [email, setEmail] = useState("test@example.com");
+  const [password, setPassword] = useState("123456");
+  const [name, setName] = useState("Test User");
+  const [roomName, setRoomName] = useState("");
+  const [roomDescription, setRoomDescription] = useState("");
+  const [folderName, setFolderName] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedRole, setSelectedRole] = useState<Role>("VIEWER");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isUploadModalOpen, setUploadModalOpen] = useState(false);
+  const [isMemberModalOpen, setMemberModalOpen] = useState(false);
+  const [isProjectsOpen, setProjectsOpen] = useState(true);
+  const [isIndexOpen, setIndexOpen] = useState(true);
+  const [isMembersOpen, setMembersOpen] = useState(true);
+  const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null;
+  const flatFolders = useMemo(() => flattenFolders(folders), [folders]);
+  const selectedFolder = flatFolders.find((folder) => folder.id === selectedFolderId) ?? null;
+  const currentMember = members.find((member) => member.userId === user?.id);
+  const canManage = currentMember?.role === "OWNER" || currentMember?.role === "EDITOR";
+  const canManageMembers = currentMember?.role === "OWNER";
+  const fileCount = flatFolders.reduce((total, folder) => total + folder.files.length, 0);
+  const selectedFolderPath = useMemo(() => findFolderPath(folders, selectedFolderId), [folders, selectedFolderId]);
+  const shellGridClass = cn(
+    "grid min-h-[calc(100vh-65px)] grid-cols-1 transition-[grid-template-columns]",
+    isProjectsOpen && isMembersOpen && "lg:grid-cols-[300px_minmax(360px,1fr)_380px]",
+    !isProjectsOpen && isMembersOpen && "lg:grid-cols-[72px_minmax(360px,1fr)_380px]",
+    isProjectsOpen && !isMembersOpen && "lg:grid-cols-[300px_minmax(360px,1fr)_72px]",
+    !isProjectsOpen && !isMembersOpen && "lg:grid-cols-[72px_minmax(360px,1fr)_72px]",
+  );
+  const contentGridClass = cn(
+    "mt-4 grid gap-4",
+    isIndexOpen ? "xl:grid-cols-[320px_minmax(0,1fr)]" : "xl:grid-cols-[64px_minmax(0,1fr)]",
+  );
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    void bootstrapSession(token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  useEffect(() => {
+    if (!token || !selectedRoomId) {
+      return;
+    }
+
+    void loadRoomDetails(selectedRoomId, token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRoomId, token]);
+
+  useEffect(() => {
+    if (!token || !isMemberModalOpen || users.length) {
+      return;
+    }
+
+    void apiRequest<User[]>("/users", { token })
+      .then((result) => {
+        setUsers(result);
+        setSelectedUserId(result[0]?.id ?? "");
+      })
+      .catch((error: unknown) => {
+        setNotice(error instanceof Error ? error.message : "Could not load users");
+      });
+  }, [isMemberModalOpen, token, users.length]);
+
+  async function bootstrapSession(activeToken: string) {
+    try {
+      setLoading(true);
+      const [me, roomList] = await Promise.all([
+        apiRequest<User>("/users/me", { token: activeToken }),
+        apiRequest<DataRoom[]>("/data-rooms", { token: activeToken }),
+      ]);
+
+      setUser(me);
+      setRooms(roomList);
+      setSelectedRoomId((current) => current ?? roomList[0]?.id ?? null);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Session expired");
+      logout();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadRoomDetails(roomId: string, activeToken = token) {
+    if (!activeToken) {
+      return;
+    }
+
+    const [memberList, folderTree] = await Promise.all([
+      apiRequest<Member[]>(`/data-rooms/${roomId}/members`, { token: activeToken }),
+      apiRequest<FolderNode[]>(`/data-rooms/${roomId}/folders/tree`, { token: activeToken }),
+    ]);
+
+    setMembers(memberList);
+    setFolders(folderTree);
+    setSelectedFolderId((current) => {
+      const foldersFlat = flattenFolders(folderTree);
+      return current && foldersFlat.some((folder) => folder.id === current)
+        ? current
+        : foldersFlat[0]?.id ?? null;
+    });
+  }
+
+  async function handleAuth(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setNotice("");
+
+    try {
+      const payload =
+        authMode === "login"
+          ? { email, password }
+          : {
+              email,
+              password,
+              name,
+            };
+      const response = await apiRequest<{ accessToken: string; user: User }>(`/auth/${authMode}`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      localStorage.setItem(TOKEN_KEY, response.accessToken);
+      setToken(response.accessToken);
+      setUser(response.user);
+      setNotice("Signed in");
+      await bootstrapSession(response.accessToken);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Authentication failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem(TOKEN_KEY);
+    setToken(null);
+    setUser(null);
+    setRooms([]);
+    setMembers([]);
+    setFolders([]);
+    setSelectedRoomId(null);
+    setSelectedFolderId(null);
+  }
+
+  async function createRoom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !roomName.trim()) {
+      return;
+    }
+
+    const room = await apiRequest<DataRoom>("/data-rooms", {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        name: roomName.trim(),
+        description: roomDescription.trim() || undefined,
+      }),
+    });
+
+    setRooms((current) => [room, ...current]);
+    setSelectedRoomId(room.id);
+    setRoomName("");
+    setRoomDescription("");
+    setNotice("Data room created");
+  }
+
+  async function deleteRoom(roomId: string) {
+    if (!token) {
+      return;
+    }
+
+    await apiRequest<{ message: string }>(`/data-rooms/${roomId}`, {
+      method: "DELETE",
+      token,
+    });
+
+    setRooms((current) => current.filter((room) => room.id !== roomId));
+    setSelectedRoomId((current) => (current === roomId ? null : current));
+    setNotice("Data room deleted");
+  }
+
+  async function createFolder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !selectedRoom || !folderName.trim()) {
+      return;
+    }
+
+    await apiRequest<FolderNode>(`/data-rooms/${selectedRoom.id}/folders`, {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        name: folderName.trim(),
+        parentId: selectedFolderId,
+      }),
+    });
+
+    setFolderName("");
+    await loadRoomDetails(selectedRoom.id);
+    setNotice("Folder created");
+  }
+
+  async function renameFolder(folder: FolderNode) {
+    if (!token || !selectedRoom) {
+      return;
+    }
+
+    const nextName = window.prompt("Folder name", folder.name)?.trim();
+    if (!nextName) {
+      return;
+    }
+
+    await apiRequest<FolderNode>(`/data-rooms/${selectedRoom.id}/folders/${folder.id}`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({ name: nextName }),
+    });
+
+    await loadRoomDetails(selectedRoom.id);
+  }
+
+  async function deleteFolder(folderId: string) {
+    if (!token || !selectedRoom) {
+      return;
+    }
+
+    await apiRequest<{ message: string }>(`/data-rooms/${selectedRoom.id}/folders/${folderId}`, {
+      method: "DELETE",
+      token,
+    });
+
+    await loadRoomDetails(selectedRoom.id);
+    setNotice("Folder deleted");
+  }
+
+  async function uploadSelectedFile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !selectedRoom || !selectedFolder || !uploadFile) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", uploadFile);
+
+    await apiRequest<StoredFile>(
+      `/data-rooms/${selectedRoom.id}/folders/${selectedFolder.id}/files`,
+      {
+        method: "POST",
+        token,
+        body: formData,
+      },
+    );
+
+    setUploadFile(null);
+    setUploadModalOpen(false);
+    await loadRoomDetails(selectedRoom.id);
+    setNotice("File uploaded");
+  }
+
+  async function deleteFile(fileId: string) {
+    if (!token || !selectedRoom) {
+      return;
+    }
+
+    await apiRequest<{ message: string }>(`/data-rooms/${selectedRoom.id}/files/${fileId}`, {
+      method: "DELETE",
+      token,
+    });
+
+    await loadRoomDetails(selectedRoom.id);
+    setNotice("File deleted");
+  }
+
+  async function downloadFile(file: StoredFile) {
+    if (!token || !selectedRoom) {
+      return;
+    }
+
+    const response = await fetch(`${API_URL}/data-rooms/${selectedRoom.id}/files/${file.id}/download`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      setNotice("Download failed");
+      return;
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = file.originalName;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  async function searchUsers(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) {
+      return;
+    }
+
+    const result = await apiRequest<User[]>(`/users?search=${encodeURIComponent(memberSearch)}`, {
+      token,
+    });
+    setUsers(result);
+    setSelectedUserId(result[0]?.id ?? "");
+  }
+
+  async function addMember(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !selectedRoom || !selectedUserId) {
+      return;
+    }
+
+    await apiRequest<Member>(`/data-rooms/${selectedRoom.id}/members`, {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        userId: selectedUserId,
+        role: selectedRole,
+      }),
+    });
+
+    await loadRoomDetails(selectedRoom.id);
+    setMemberModalOpen(false);
+    setMemberSearch("");
+    setSelectedUserId("");
+    setNotice("Member added");
+  }
+
+  async function changeMemberRole(member: Member, role: Role) {
+    if (!token || !selectedRoom) {
+      return;
+    }
+
+    await apiRequest<Member>(`/data-rooms/${selectedRoom.id}/members/${member.id}`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({ role }),
+    });
+
+    await loadRoomDetails(selectedRoom.id);
+  }
+
+  async function removeMember(memberId: string) {
+    if (!token || !selectedRoom) {
+      return;
+    }
+
+    await apiRequest<{ message: string }>(`/data-rooms/${selectedRoom.id}/members/${memberId}`, {
+      method: "DELETE",
+      token,
+    });
+
+    await loadRoomDetails(selectedRoom.id);
+  }
+
+  if (!token || !user) {
+    return (
+      <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dff6e8_0%,transparent_35%),linear-gradient(135deg,#f8fafc_0%,#eef6f1_45%,#f6f1e8_100%)] text-slate-950 dark:bg-[radial-gradient(circle_at_top_left,#064e3b_0%,transparent_30%),linear-gradient(135deg,#020617_0%,#0f172a_55%,#111827_100%)] dark:text-slate-50">
+        <div className="fixed right-4 top-4 z-10">
+          <ThemeToggle theme={theme} onToggle={() => setTheme((current) => (current === "dark" ? "light" : "dark"))} />
+        </div>
+        <section className="mx-auto grid min-h-screen w-full max-w-6xl items-center gap-8 px-5 py-8 lg:grid-cols-[1fr_420px]">
+          <div className="space-y-7">
+            <div className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-white/75 px-3 py-1 text-sm font-medium text-emerald-800 shadow-sm backdrop-blur dark:border-emerald-800 dark:bg-slate-900/70 dark:text-emerald-200">
+              <Shield className="size-4" />
+              Secure Data Room MVP
+            </div>
+            <div className="space-y-4">
+              <h1 className="max-w-3xl text-5xl font-semibold tracking-normal text-slate-950 dark:text-white lg:text-6xl">
+                Data Room
+              </h1>
+              <p className="max-w-2xl text-lg leading-8 text-slate-700 dark:text-slate-300">
+                Auth, role-based rooms, nested folders, PDF and image uploads, member management,
+                downloads, and delete flows in one focused workspace.
+              </p>
+            </div>
+            <div className="grid max-w-3xl gap-3 sm:grid-cols-3">
+              {["OWNER controls members", "EDITOR manages content", "VIEWER reads only"].map((item) => (
+                <div
+                  key={item}
+                  className="rounded-md border border-slate-200 bg-white/80 p-4 text-sm text-slate-700 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300"
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <form
+            onSubmit={handleAuth}
+            className="rounded-md border border-slate-200 bg-white/95 p-5 shadow-xl shadow-slate-200/60 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-black/30"
+          >
+            <div className="mb-5 flex rounded-md bg-slate-100 p-1 dark:bg-slate-800">
+              <button
+                className={cn(
+                  "h-9 flex-1 rounded-sm text-sm font-medium text-slate-600 dark:text-slate-300",
+                  authMode === "login" && "bg-white text-slate-950 shadow-sm dark:bg-slate-950 dark:text-white",
+                )}
+                type="button"
+                onClick={() => setAuthMode("login")}
+              >
+                Login
+              </button>
+              <button
+                className={cn(
+                  "h-9 flex-1 rounded-sm text-sm font-medium text-slate-600 dark:text-slate-300",
+                  authMode === "register" && "bg-white text-slate-950 shadow-sm dark:bg-slate-950 dark:text-white",
+                )}
+                type="button"
+                onClick={() => setAuthMode("register")}
+              >
+                Register
+              </button>
+            </div>
+            <div className="space-y-3">
+              {authMode === "register" && (
+                <Field label="Name" value={name} onChange={setName} autoComplete="name" />
+              )}
+              <Field label="Email" value={email} onChange={setEmail} type="email" autoComplete="email" />
+              <Field
+                label="Password"
+                value={password}
+                onChange={setPassword}
+                type="password"
+                autoComplete={authMode === "login" ? "current-password" : "new-password"}
+              />
+            </div>
+            <Button className="mt-5 w-full" type="submit" disabled={loading}>
+              <Shield className="size-4" />
+              {authMode === "login" ? "Login" : "Create account"}
+            </Button>
+            {notice && <p className="mt-4 text-sm text-red-700 dark:text-red-300">{notice}</p>}
+          </form>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-100 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
+      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+        <div className="flex min-h-16 items-center justify-between gap-4 px-4 lg:px-6">
+          <div>
+            <p className="text-xs font-medium uppercase text-emerald-700 dark:text-emerald-300">Data Room</p>
+            <h1 className="text-lg font-semibold">Secure workspace</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-900 xl:flex">
+              <Button
+                variant={isProjectsOpen ? "secondary" : "ghost"}
+                size="sm"
+                type="button"
+                onClick={() => setProjectsOpen((current) => !current)}
+              >
+                {isProjectsOpen ? <PanelLeftClose className="size-4" /> : <PanelLeftOpen className="size-4" />}
+                Projects
+              </Button>
+              <Button
+                variant={isIndexOpen ? "secondary" : "ghost"}
+                size="sm"
+                type="button"
+                onClick={() => setIndexOpen((current) => !current)}
+              >
+                {isIndexOpen ? <PanelLeftClose className="size-4" /> : <PanelLeftOpen className="size-4" />}
+                Index
+              </Button>
+              <Button
+                variant={isMembersOpen ? "secondary" : "ghost"}
+                size="sm"
+                type="button"
+                onClick={() => setMembersOpen((current) => !current)}
+              >
+                {isMembersOpen ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
+                Members
+              </Button>
+            </div>
+            <div className="hidden text-right text-sm sm:block">
+              <p className="font-medium">{user.name}</p>
+              <p className="text-slate-500 dark:text-slate-400">{user.email}</p>
+            </div>
+            <ThemeToggle theme={theme} onToggle={() => setTheme((current) => (current === "dark" ? "light" : "dark"))} />
+            <Button variant="outline" size="sm" onClick={() => selectedRoomId && void loadRoomDetails(selectedRoomId)}>
+              <RefreshCcw className="size-4" />
+              Refresh
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={logout} title="Logout">
+              <LogOut className="size-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div className={shellGridClass}>
+        <aside
+          className={cn(
+            "border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:border-b-0 lg:border-r",
+            isProjectsOpen ? "p-4" : "p-2",
+          )}
+          aria-label="Projects navigation"
+        >
+          {isProjectsOpen ? (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <SectionTitle icon={Building2} title="Projects" />
+                <Button variant="ghost" size="icon-sm" type="button" onClick={() => setProjectsOpen(false)} title="Collapse projects">
+                  <PanelLeftClose className="size-4" />
+                </Button>
+              </div>
+              <div className="mt-4">
+                <CollapsibleSection title="Create data room" description="Open only when you need a new workspace">
+                  <form onSubmit={createRoom} className="space-y-2">
+                    <Field label="Room name" value={roomName} onChange={setRoomName} compact />
+                    <Field label="Description" value={roomDescription} onChange={setRoomDescription} compact />
+                    <Button className="w-full" size="sm" type="submit">
+                      <Plus className="size-4" />
+                      Create room
+                    </Button>
+                  </form>
+                </CollapsibleSection>
+              </div>
+
+              <div className="mt-5 space-y-2">
+                {rooms.map((room) => (
+                  <button
+                    key={room.id}
+                    className={cn(
+                      "w-full rounded-md border p-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200",
+                      selectedRoomId === room.id
+                        ? "border-emerald-400 bg-emerald-50 text-emerald-950 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-50 dark:ring-emerald-900"
+                        : "border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:bg-slate-800",
+                    )}
+                    onClick={() => setSelectedRoomId(room.id)}
+                    type="button"
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="block truncate font-medium">{room.name}</span>
+                      {selectedRoomId === room.id && (
+                        <span className="rounded-sm bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold uppercase text-white dark:bg-emerald-500 dark:text-emerald-950">
+                          Open
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-1 block truncate text-xs text-slate-500 dark:text-slate-400">
+                      {room.description || "No description"}
+                    </span>
+                    {selectedRoomId === room.id && currentMember && (
+                      <span className="mt-2 inline-flex rounded-sm bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-white dark:bg-slate-100 dark:text-slate-950">
+                        YOUR ROLE: {currentMember.role}
+                      </span>
+                    )}
+                  </button>
+                ))}
+                {!rooms.length && <EmptyState text="Create your first data room" compact />}
+              </div>
+            </>
+          ) : (
+            <CollapsedRail
+              icon={Building2}
+              label="Projects"
+              meta={selectedRoom?.name ?? "No project"}
+              onExpand={() => setProjectsOpen(true)}
+            />
+          )}
+        </aside>
+
+        <section className="min-w-0 border-b border-slate-200 bg-slate-100 p-4 dark:border-slate-800 dark:bg-slate-950 lg:border-b-0 lg:border-r">
+          <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-4">
+              <Breadcrumbs
+                folderPath={selectedFolderPath}
+                room={selectedRoom}
+                onFolderClick={setSelectedFolderId}
+                onRoomClick={() => setSelectedFolderId(null)}
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="rounded-sm bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+                    Project
+                  </span>
+                  <span className="rounded-sm bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    {currentMember?.role ?? "No role"}
+                  </span>
+                </div>
+                <h2 className="text-2xl font-semibold">{selectedRoom?.name ?? "Select a data room"}</h2>
+                <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+                  {selectedRoom?.description || "No description for this room."}
+                </p>
+              </div>
+              {selectedRoom && canManageMembers && (
+                <Button variant="destructive" size="sm" onClick={() => void deleteRoom(selectedRoom.id)}>
+                  <Trash2 className="size-4" />
+                  Delete room
+                </Button>
+              )}
+            </div>
+            <details className="room-snapshot-disclosure mt-4 rounded-md border border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-950/50">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition hover:bg-slate-100 focus-visible:ring-3 focus-visible:ring-emerald-200 dark:text-slate-300 dark:hover:bg-slate-800 [&::-webkit-details-marker]:hidden">
+                <span>Room snapshot</span>
+                <ChevronDown className="size-4 text-slate-400 transition-transform dark:text-slate-500" />
+              </summary>
+              <div className="grid gap-2 border-t border-slate-200 p-3 dark:border-slate-800 sm:grid-cols-3">
+                <Metric label="Folders" value={flatFolders.length} />
+                <Metric label="Files" value={fileCount} />
+                <Metric label="Members" value={members.length} />
+              </div>
+            </details>
+          </div>
+
+          <div className={contentGridClass}>
+            <div
+              className={cn(
+                "rounded-md border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900",
+                isIndexOpen ? "p-4" : "p-2",
+              )}
+            >
+              {isIndexOpen ? (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <SectionTitle icon={Folder} title="Index" />
+                    <div className="flex items-center gap-1">
+                      {selectedFolder && (
+                        <Button variant="ghost" size="xs" type="button" onClick={() => setSelectedFolderId(null)}>
+                          Room level
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon-sm" type="button" onClick={() => setIndexOpen(false)} title="Collapse index">
+                        <PanelLeftClose className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  {canManage && selectedRoom && (
+                    <div className="mt-4">
+                      <CollapsibleSection
+                        title="Create folder"
+                        description={selectedFolder ? `Inside ${selectedFolder.name}` : "At room level"}
+                      >
+                        <form onSubmit={createFolder} className="space-y-2">
+                          <Field
+                            label={selectedFolder ? "New child folder" : "New room-level folder"}
+                            value={folderName}
+                            onChange={setFolderName}
+                            compact
+                          />
+                          <Button className="w-full" size="sm" type="submit">
+                            <FolderPlus className="size-4" />
+                            Add folder
+                          </Button>
+                        </form>
+                      </CollapsibleSection>
+                    </div>
+                  )}
+                  <div className="mt-4 space-y-1">
+                    {folders.length ? (
+                      folders.map((folder) => (
+                        <FolderTree
+                          key={folder.id}
+                          canManage={canManage}
+                          folder={folder}
+                          level={0}
+                          selectedFolderId={selectedFolderId}
+                          onDelete={deleteFolder}
+                          onRename={renameFolder}
+                          onSelect={setSelectedFolderId}
+                        />
+                      ))
+                    ) : (
+                      <EmptyState text="No folders yet" />
+                    )}
+                  </div>
+                </>
+              ) : (
+                <CollapsedRail
+                  icon={Folder}
+                  label="Index"
+                  meta={selectedFolder?.name ?? "Room level"}
+                  onExpand={() => setIndexOpen(true)}
+                />
+              )}
+            </div>
+
+            <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+                <div>
+                  <SectionTitle icon={FileText} title={selectedFolder?.name ?? "Documents"} />
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {selectedFolder
+                      ? `${selectedFolder.files.length} item${selectedFolder.files.length === 1 ? "" : "s"} in this folder`
+                      : "Select a folder in the index"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-sm bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    PDF/images
+                  </span>
+                  {canManage && selectedFolder && (
+                    <Button size="sm" type="button" onClick={() => setUploadModalOpen(true)}>
+                      <Upload className="size-4" />
+                      Upload
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950/60">
+                <span className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Path</span>
+                <ChevronRight className="size-4 text-slate-300 dark:text-slate-700" />
+                <p className="min-w-0 truncate font-medium">
+                  {selectedRoom?.name ?? "No room"}
+                  {selectedFolderPath.length
+                    ? ` / ${selectedFolderPath.map((folder) => folder.name).join(" / ")}`
+                    : ""}
+                </p>
+              </div>
+              <div className="mt-4 divide-y divide-slate-100 dark:divide-slate-800">
+                {selectedFolder?.files.length ? (
+                  selectedFolder.files.map((file) => (
+                    <div key={file.id} className="flex items-center gap-3 py-3">
+                      <div className="flex size-10 items-center justify-center rounded-md bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        {file.mimeType === "application/pdf" ? (
+                          <FileText className="size-5" />
+                        ) : (
+                          <FileImage className="size-5" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{file.originalName}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {formatBytes(file.size)} · {file.mimeType}
+                        </p>
+                      </div>
+                      <Button variant="ghost" size="icon-sm" onClick={() => void downloadFile(file)} title="Download">
+                        <Download className="size-4" />
+                      </Button>
+                      {canManage && (
+                        <Button variant="ghost" size="icon-sm" onClick={() => void deleteFile(file.id)} title="Delete">
+                          <Trash2 className="size-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <EmptyState text={selectedFolder ? "No files in this folder" : "Select a folder"} />
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside
+          className={cn("bg-white dark:bg-slate-900", isMembersOpen ? "p-4" : "p-2")}
+          aria-label="Members panel"
+        >
+          {isMembersOpen ? (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <SectionTitle icon={Users} title="Members" />
+                <div className="flex items-center gap-1">
+                  {canManageMembers && (
+                    <Button size="sm" type="button" onClick={() => setMemberModalOpen(true)}>
+                      <Plus className="size-4" />
+                      Add
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="icon-sm" type="button" onClick={() => setMembersOpen(false)} title="Collapse members">
+                    <PanelRightClose className="size-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/60">
+                <p className="text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Active room</p>
+                <p className="mt-1 truncate text-sm font-semibold">{selectedRoom?.name ?? "No room selected"}</p>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {members.map((member) => (
+                  <div key={member.id} className="rounded-md border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/50">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{member.user.name}</p>
+                        <p className="truncate text-xs text-slate-500 dark:text-slate-400">{member.user.email}</p>
+                      </div>
+                      <span className="rounded-sm bg-slate-100 px-2 py-1 text-xs font-medium dark:bg-slate-800 dark:text-slate-200">
+                        {member.role}
+                      </span>
+                    </div>
+                    {canManageMembers && member.role !== "OWNER" && (
+                      <details className="mt-3 rounded-md border border-slate-200 dark:border-slate-800">
+                        <summary className="cursor-pointer list-none px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 focus-visible:ring-3 focus-visible:ring-emerald-200 dark:text-slate-300 dark:hover:bg-slate-800">
+                          Access controls
+                        </summary>
+                        <div className="flex gap-2 border-t border-slate-200 p-2 dark:border-slate-800">
+                          <SelectControl<Role>
+                            ariaLabel={`Role for ${member.user.name}`}
+                            className="min-w-0 flex-1"
+                            compact
+                            value={member.role}
+                            onChange={(role) => void changeMemberRole(member, role)}
+                          >
+                            <option value="VIEWER">VIEWER</option>
+                            <option value="EDITOR">EDITOR</option>
+                          </SelectControl>
+                          <Button variant="ghost" size="icon-sm" onClick={() => void removeMember(member.id)} title="Remove member">
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <CollapsedRail
+              icon={Users}
+              label="Members"
+              meta={`${members.length} people`}
+              onExpand={() => setMembersOpen(true)}
+              side="right"
+            />
+          )}
+        </aside>
+      </div>
+
+      {notice && (
+        <div className="fixed bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+          {notice}
+        </div>
+      )}
+
+      <Modal
+        description={
+          selectedFolder
+            ? `${selectedRoom?.name ?? "Data room"} / ${selectedFolderPath.map((folder) => folder.name).join(" / ")}`
+            : "Select a folder before uploading"
+        }
+        isOpen={isUploadModalOpen}
+        title="Upload file"
+        onClose={() => setUploadModalOpen(false)}
+      >
+        <form onSubmit={uploadSelectedFile} className="space-y-4">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              File
+            </span>
+            <span className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-sm text-slate-600 transition hover:border-emerald-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-emerald-600">
+              <Upload className="size-5" />
+              <span className="max-w-full truncate font-medium">{uploadFile?.name ?? "Choose PDF or image"}</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">PDF, JPG, PNG, WEBP, GIF · max 20 MB</span>
+            </span>
+            <input
+              className="sr-only"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,application/pdf,image/jpeg,image/png,image/webp,image/gif"
+              type="file"
+              onChange={(event: ChangeEvent<HTMLInputElement>) => setUploadFile(event.target.files?.[0] ?? null)}
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" type="button" onClick={() => setUploadModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!uploadFile || !selectedFolder}>
+              <Upload className="size-4" />
+              Upload
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        description={selectedRoom ? `Add people to ${selectedRoom.name}` : "Select a data room first"}
+        isOpen={isMemberModalOpen}
+        title="Add member"
+        onClose={() => setMemberModalOpen(false)}
+      >
+        <div className="space-y-4">
+          <form onSubmit={searchUsers} className="flex gap-2">
+            <label className="sr-only" htmlFor="member-search">
+              Search users
+            </label>
+            <input
+              className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-emerald-500 focus:ring-3 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-emerald-950"
+              id="member-search"
+              placeholder="Search users by name or email"
+              value={memberSearch}
+              onChange={(event) => setMemberSearch(event.target.value)}
+            />
+            <Button type="submit">
+              <Search className="size-4" />
+              Search
+            </Button>
+          </form>
+
+          <form onSubmit={addMember} className="space-y-3">
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">User</span>
+              <SelectControl
+                ariaLabel="User"
+                value={selectedUserId}
+                onChange={setSelectedUserId}
+              >
+                <option value="">Select user</option>
+                {users.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.name} · {candidate.email}
+                  </option>
+                ))}
+              </SelectControl>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Role</span>
+              <SelectControl<Role>
+                ariaLabel="Role"
+                value={selectedRole}
+                onChange={setSelectedRole}
+              >
+                <option value="VIEWER">Viewer · can view and download</option>
+                <option value="EDITOR">Editor · can manage folders and files</option>
+              </SelectControl>
+            </label>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" type="button" onClick={() => setMemberModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!selectedUserId}>
+                <Plus className="size-4" />
+                Add member
+              </Button>
+            </div>
+          </form>
+        </div>
+      </Modal>
+    </main>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+  autoComplete,
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  autoComplete?: string;
+  compact?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className={cn("mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300", compact && "text-xs")}>
+        {label}
+      </span>
+      <input
+        autoComplete={autoComplete}
+        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-3 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-50 dark:focus:border-emerald-500 dark:focus:ring-emerald-950"
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
+function SelectControl<TValue extends string>({
+  ariaLabel,
+  children,
+  className,
+  compact = false,
+  value,
+  onChange,
+}: {
+  ariaLabel: string;
+  children: ReactNode;
+  className?: string;
+  compact?: boolean;
+  value: TValue;
+  onChange: (value: TValue) => void;
+}) {
+  return (
+    <div className={cn("relative", className)}>
+      <select
+        aria-label={ariaLabel}
+        className={cn(
+          "peer w-full appearance-none rounded-md border border-slate-300 bg-white text-slate-950 outline-none transition hover:border-slate-400 focus:border-emerald-500 focus:ring-3 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:hover:border-slate-600 dark:focus:border-emerald-500 dark:focus:ring-emerald-950 dark:disabled:bg-slate-900 dark:disabled:text-slate-500",
+          compact ? "h-8 px-2 pr-8 text-xs" : "h-10 px-3 pr-10 text-sm",
+        )}
+        value={value}
+        onChange={(event) => onChange(event.target.value as TValue)}
+      >
+        {children}
+      </select>
+      <ChevronDown
+        className={cn(
+          "pointer-events-none absolute top-1/2 -translate-y-1/2 text-slate-400 transition peer-focus:text-emerald-600 dark:text-slate-500 dark:peer-focus:text-emerald-300",
+          compact ? "right-2 size-3.5" : "right-3 size-4",
+        )}
+      />
+    </div>
+  );
+}
+
+function SectionTitle({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className="size-4 text-emerald-700 dark:text-emerald-300" />
+      <h3 className="text-sm font-semibold uppercase tracking-normal text-slate-700 dark:text-slate-300">{title}</h3>
+    </div>
+  );
+}
+
+function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
+  return (
+    <Button variant="outline" size="icon-sm" onClick={onToggle} title="Toggle theme" type="button">
+      {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+    </Button>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/60">
+      <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function Breadcrumbs({
+  room,
+  folderPath,
+  onRoomClick,
+  onFolderClick,
+}: {
+  room: DataRoom | null;
+  folderPath: FolderNode[];
+  onRoomClick: () => void;
+  onFolderClick: (folderId: string | null) => void;
+}) {
+  return (
+    <nav
+      aria-label="Current location"
+      className="flex min-w-0 flex-wrap items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1.5 text-sm dark:border-slate-800 dark:bg-slate-950/60"
+    >
+      <span className="px-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Location</span>
+      <button
+        className="inline-flex h-8 items-center gap-1 rounded-md border border-transparent px-2 text-slate-600 transition hover:border-slate-300 hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200 active:translate-y-px dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-slate-50"
+        onClick={onRoomClick}
+        title="Back to project level"
+        type="button"
+      >
+        <Building2 className="size-4" />
+        Projects
+      </button>
+      <ChevronRight className="size-4 text-slate-300 dark:text-slate-700" />
+      <button
+        className={cn(
+          "h-8 max-w-[220px] truncate rounded-md border px-2 font-medium transition focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200 active:translate-y-px",
+          folderPath.length
+            ? "border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-slate-50"
+            : "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200",
+        )}
+        disabled={!room}
+        onClick={onRoomClick}
+        title="Project level"
+        type="button"
+      >
+        {room?.name ?? "No room"}
+      </button>
+      {folderPath.map((folder) => (
+        <span className="contents" key={folder.id}>
+          <ChevronRight className="size-4 text-slate-300 dark:text-slate-700" />
+          <button
+            className={cn(
+              "h-8 max-w-[180px] truncate rounded-md border px-2 font-medium transition focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200 active:translate-y-px",
+              folder.id === folderPath.at(-1)?.id
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
+                : "border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-slate-50",
+            )}
+            onClick={() => onFolderClick(folder.id)}
+            title={`Open ${folder.name}`}
+            type="button"
+          >
+            {folder.name}
+          </button>
+        </span>
+      ))}
+    </nav>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  description,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details
+      className="group rounded-md border border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-950/50"
+      open={defaultOpen}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium outline-none transition hover:bg-slate-100 focus-visible:ring-3 focus-visible:ring-emerald-200 dark:hover:bg-slate-800">
+        <span>
+          <span className="block">{title}</span>
+          {description && <span className="block text-xs font-normal text-slate-500 dark:text-slate-400">{description}</span>}
+        </span>
+        <Plus className="size-4 transition group-open:rotate-45" />
+      </summary>
+      <div className="border-t border-slate-200 p-3 dark:border-slate-800">{children}</div>
+    </details>
+  );
+}
+
+function Modal({
+  isOpen,
+  title,
+  description,
+  children,
+  onClose,
+}: {
+  isOpen: boolean;
+  title: string;
+  description?: string;
+  children: ReactNode;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+
+    if (!dialog) {
+      return;
+    }
+
+    if (isOpen && !dialog.open) {
+      dialog.showModal();
+    }
+
+    if (!isOpen && dialog.open) {
+      dialog.close();
+    }
+  }, [isOpen]);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={`${title.replace(/\s+/g, "-").toLowerCase()}-title`}
+      className="m-auto max-h-[86vh] w-[min(92vw,520px)] overflow-hidden rounded-md border border-slate-200 bg-white p-0 text-slate-950 shadow-2xl backdrop:bg-slate-950/45 backdrop:backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50"
+      onCancel={onClose}
+      onClick={(event) => {
+        if (event.target === dialogRef.current) {
+          onClose();
+        }
+      }}
+    >
+      <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold" id={`${title.replace(/\s+/g, "-").toLowerCase()}-title`}>
+              {title}
+            </h2>
+            {description && <p className="mt-1 max-w-full truncate text-sm text-slate-500 dark:text-slate-400">{description}</p>}
+          </div>
+          <Button variant="ghost" size="icon-sm" type="button" onClick={onClose} title="Close dialog">
+            <X className="size-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="max-h-[calc(86vh-88px)] overflow-y-auto p-5">{children}</div>
+    </dialog>
+  );
+}
+
+function CollapsedRail({
+  label,
+  onExpand,
+  side = "left",
+}: {
+  icon: LucideIcon;
+  label: string;
+  meta: string;
+  onExpand: () => void;
+  side?: "left" | "right";
+}) {
+  return (
+    <button
+      aria-label={`Expand ${label}`}
+      className="flex min-h-40 w-full flex-col items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-2 py-3 text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-100"
+      onClick={onExpand}
+      title={`Expand ${label}`}
+      type="button"
+    >
+      {side === "right" ? <PanelRightOpen className="size-4" /> : <PanelLeftOpen className="size-4" />}
+    </button>
+  );
+}
+
+function FolderTree({
+  folder,
+  level,
+  selectedFolderId,
+  canManage,
+  onSelect,
+  onRename,
+  onDelete,
+}: {
+  folder: FolderNode;
+  level: number;
+  selectedFolderId: string | null;
+  canManage: boolean;
+  onSelect: (folderId: string) => void;
+  onRename: (folder: FolderNode) => Promise<void>;
+  onDelete: (folderId: string) => Promise<void>;
+}) {
+  return (
+    <div>
+      <div
+        className={cn(
+          "group flex min-h-9 items-center gap-2 rounded-md border border-transparent px-2 text-sm transition focus-within:ring-3 focus-within:ring-emerald-200",
+          selectedFolderId === folder.id
+            ? "border-emerald-200 bg-emerald-50 text-emerald-950 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-50"
+            : "hover:border-slate-200 hover:bg-slate-50 dark:hover:border-slate-800 dark:hover:bg-slate-800",
+        )}
+        style={{ paddingLeft: `${8 + level * 16}px` }}
+      >
+        <button
+          className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none"
+          onClick={() => onSelect(folder.id)}
+          title={`Open ${folder.name}`}
+          type="button"
+        >
+          <Folder className="size-4 shrink-0 text-amber-600" />
+          <span className="truncate">{folder.name}</span>
+          <span className="text-xs text-slate-400 dark:text-slate-500">{folder.files.length}</span>
+        </button>
+        {canManage && (
+          <div className="flex opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+            <Button variant="ghost" size="icon-xs" onClick={() => void onRename(folder)} title="Rename">
+              <Pencil className="size-3" />
+            </Button>
+            <Button variant="ghost" size="icon-xs" onClick={() => void onDelete(folder.id)} title="Delete">
+              <Trash2 className="size-3" />
+            </Button>
+          </div>
+        )}
+      </div>
+      {folder.children.map((child) => (
+        <FolderTree
+          key={child.id}
+          canManage={canManage}
+          folder={child}
+          level={level + 1}
+          selectedFolderId={selectedFolderId}
+          onDelete={onDelete}
+          onRename={onRename}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ text, compact = false }: { text: string; compact?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-400",
+        compact ? "min-h-16" : "min-h-28",
+      )}
+    >
+      {text}
+    </div>
+  );
+}
+
+export default App;

@@ -1,0 +1,107 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model DataRoom {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+
+  ownerId String
+  owner   User   @relation("DataRoomOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  members DataRoomMember[]
+  folders Folder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+model DataRoomMember {
+  id String @id @default(uuid())
+
+  dataRoomId String
+  userId     String
+  role       Role   @default(VIEWER)
+
+  dataRoom DataRoom @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dataRoomId, userId])
+  @@index([userId])
+}
+
+model Folder {
+  id   String @id @default(uuid())
+  name String
+
+  dataRoomId String
+  dataRoom   DataRoom @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+
+  parentId String?
+  parent   Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[] @relation("FolderHierarchy")
+
+  files File[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dataRoomId])
+  @@index([parentId])
+}
+
+model File {
+  id String @id @default(uuid())
+
+  name         String
+  originalName String
+  mimeType     String
+  size         Int
+
+  storageKey String
+
+  folderId String
+  folder   Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([folderId])
+  @@index([uploadedById])
+}
+
+model User {
+  id       String @id @default(uuid())
+  email    String @unique
+  password String
+  name     String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownedDataRooms DataRoom[]       @relation("DataRoomOwner")
+  memberships    DataRoomMember[]
+
+  uploadedFiles File[]
+}
+
+enum Role {
+  OWNER
+  EDITOR
+  VIEWER
+}
