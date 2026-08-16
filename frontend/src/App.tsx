@@ -23,7 +23,6 @@ import {
   PanelRightOpen,
   Pencil,
   Plus,
-  RefreshCcw,
   Search,
   Share2,
   Shield,
@@ -1125,10 +1124,6 @@ function App() {
               <p className="text-slate-500 dark:text-slate-400">{user.email}</p>
             </div>
             <ThemeToggle theme={theme} onToggle={() => setTheme((current) => (current === "dark" ? "light" : "dark"))} />
-            <Button variant="outline" size="sm" onClick={() => selectedRoomId && void loadRoomDetails(selectedRoomId)}>
-              <RefreshCcw className="size-4" />
-              Refresh
-            </Button>
             <Button variant="ghost" size="icon-sm" onClick={logout} title="Logout">
               <LogOut className="size-4" />
             </Button>
