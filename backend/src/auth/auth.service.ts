@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 
 import { UsersService } from '../users/users.service';
 import type { PublicUser } from '../users/users.service';
@@ -14,6 +15,11 @@ import { RegisterDto } from './dto/register.dto';
 type AuthResponse = {
   accessToken: string;
   user: PublicUser;
+};
+
+export type GoogleOAuthProfile = {
+  email: string;
+  name: string;
 };
 
 @Injectable()
@@ -53,6 +59,24 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    return this.generateAuthResponse(user);
+  }
+
+  async loginWithGoogle(profile: GoogleOAuthProfile): Promise<AuthResponse> {
+    const existingUser = await this.usersService.findByEmail(profile.email);
+
+    if (existingUser) {
+      return this.generateAuthResponse(existingUser);
+    }
+
+    const generatedPassword = randomBytes(32).toString('hex');
+    const hashedPassword = await bcrypt.hash(generatedPassword, 12);
+    const user = await this.usersService.create({
+      email: profile.email,
+      password: hashedPassword,
+      name: profile.name,
+    });
 
     return this.generateAuthResponse(user);
   }
