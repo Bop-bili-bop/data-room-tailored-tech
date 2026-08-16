@@ -966,35 +966,6 @@ function App() {
             <h1 className="text-lg font-semibold">Secure workspace</h1>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-900 xl:flex">
-              <Button
-                variant={isProjectsOpen ? "secondary" : "ghost"}
-                size="sm"
-                type="button"
-                onClick={() => setProjectsOpen((current) => !current)}
-              >
-                {isProjectsOpen ? <PanelLeftClose className="size-4" /> : <PanelLeftOpen className="size-4" />}
-                Projects
-              </Button>
-              <Button
-                variant={isIndexOpen ? "secondary" : "ghost"}
-                size="sm"
-                type="button"
-                onClick={() => setIndexOpen((current) => !current)}
-              >
-                {isIndexOpen ? <PanelLeftClose className="size-4" /> : <PanelLeftOpen className="size-4" />}
-                Index
-              </Button>
-              <Button
-                variant={isMembersOpen ? "secondary" : "ghost"}
-                size="sm"
-                type="button"
-                onClick={() => setMembersOpen((current) => !current)}
-              >
-                {isMembersOpen ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
-                Members
-              </Button>
-            </div>
             <div className="hidden text-right text-sm sm:block">
               <p className="font-medium">{user.name}</p>
               <p className="text-slate-500 dark:text-slate-400">{user.email}</p>
@@ -1089,7 +1060,9 @@ function App() {
             <div className="mb-4">
               <Breadcrumbs
                 folderPath={selectedFolderPath}
+                label="Location"
                 room={selectedRoom}
+                showProjects
                 onFolderClick={setSelectedFolderId}
                 onRoomClick={() => setSelectedFolderId(null)}
               />
@@ -1169,24 +1142,28 @@ function App() {
                     </div>
                   </div>
                   {canManage && selectedRoom && (
-                    <div className="mt-4">
-                      <CollapsibleSection
-                        title="Create folder"
-                        description={selectedFolder ? `Inside ${selectedFolder.name}` : "At room level"}
-                      >
-                        <form onSubmit={createFolder} className="space-y-2">
-                          <Field
-                            label={selectedFolder ? "New child folder" : "New room-level folder"}
-                            value={folderName}
-                            onChange={setFolderName}
-                            compact
-                          />
-                          <Button className="w-full" size="sm" type="submit">
-                            <FolderPlus className="size-4" />
-                            Add folder
-                          </Button>
-                        </form>
-                      </CollapsibleSection>
+                    <div className="mt-4 rounded-md border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-950/50">
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">Create folder</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {selectedFolder ? `Inside ${selectedFolder.name}` : "At room level"}
+                          </p>
+                        </div>
+                        <FolderPlus className="mt-0.5 size-4 text-slate-400 dark:text-slate-500" />
+                      </div>
+                      <form onSubmit={createFolder} className="space-y-2">
+                        <Field
+                          label={selectedFolder ? "New child folder" : "New room-level folder"}
+                          value={folderName}
+                          onChange={setFolderName}
+                          compact
+                        />
+                        <Button className="w-full" size="sm" type="submit">
+                          <FolderPlus className="size-4" />
+                          Add folder
+                        </Button>
+                      </form>
                     </div>
                   )}
                   <div className="mt-4 space-y-1">
@@ -1257,15 +1234,14 @@ function App() {
                   )}
                 </div>
               </div>
-              <div className="mt-3 flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950/60">
-                <span className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Path</span>
-                <ChevronRight className="size-4 text-slate-300 dark:text-slate-700" />
-                <p className="min-w-0 truncate font-medium">
-                  {selectedRoom?.name ?? "No room"}
-                  {selectedFolderPath.length
-                    ? ` / ${selectedFolderPath.map((folder) => folder.name).join(" / ")}`
-                    : ""}
-                </p>
+              <div className="mt-3">
+                <Breadcrumbs
+                  folderPath={selectedFolderPath}
+                  label="Path"
+                  room={selectedRoom}
+                  onFolderClick={setSelectedFolderId}
+                  onRoomClick={() => setSelectedFolderId(null)}
+                />
               </div>
               <div className="mt-4 divide-y divide-slate-100 dark:divide-slate-800">
                 {selectedFolder?.files.length ? (
@@ -1946,37 +1922,43 @@ function Metric({ label, value }: { label: string; value: number }) {
 function Breadcrumbs({
   room,
   folderPath,
+  label = "Location",
+  showProjects = false,
   onRoomClick,
   onFolderClick,
 }: {
   room: DataRoom | null;
   folderPath: FolderNode[];
+  label?: string;
+  showProjects?: boolean;
   onRoomClick: () => void;
   onFolderClick: (folderId: string | null) => void;
 }) {
+  const itemClassName =
+    "inline-flex h-8 max-w-[220px] items-center gap-1 truncate rounded-md border border-transparent px-2 font-medium text-slate-950 transition hover:border-slate-300 hover:bg-white focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200 active:translate-y-px disabled:pointer-events-none disabled:text-slate-400 dark:text-slate-50 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:disabled:text-slate-600";
+
   return (
     <nav
       aria-label="Current location"
       className="flex min-w-0 flex-wrap items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1.5 text-sm dark:border-slate-800 dark:bg-slate-950/60"
     >
-      <span className="px-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Location</span>
+      <span className="px-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">{label}</span>
+      {showProjects && (
+        <>
+          <button
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-transparent px-2 text-slate-600 transition hover:border-slate-300 hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200 active:translate-y-px dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-slate-50"
+            onClick={onRoomClick}
+            title="Back to project level"
+            type="button"
+          >
+            <Building2 className="size-4" />
+            Projects
+          </button>
+          <ChevronRight className="size-4 text-slate-300 dark:text-slate-700" />
+        </>
+      )}
       <button
-        className="inline-flex h-8 items-center gap-1 rounded-md border border-transparent px-2 text-slate-600 transition hover:border-slate-300 hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200 active:translate-y-px dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-slate-50"
-        onClick={onRoomClick}
-        title="Back to project level"
-        type="button"
-      >
-        <Building2 className="size-4" />
-        Projects
-      </button>
-      <ChevronRight className="size-4 text-slate-300 dark:text-slate-700" />
-      <button
-        className={cn(
-          "h-8 max-w-[220px] truncate rounded-md border px-2 font-medium transition focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200 active:translate-y-px",
-          folderPath.length
-            ? "border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-slate-50"
-            : "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200",
-        )}
+        className={itemClassName}
         disabled={!room}
         onClick={onRoomClick}
         title="Project level"
@@ -1988,12 +1970,7 @@ function Breadcrumbs({
         <span className="contents" key={folder.id}>
           <ChevronRight className="size-4 text-slate-300 dark:text-slate-700" />
           <button
-            className={cn(
-              "h-8 max-w-[180px] truncate rounded-md border px-2 font-medium transition focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200 active:translate-y-px",
-              folder.id === folderPath.at(-1)?.id
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
-                : "border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-900 dark:hover:text-slate-50",
-            )}
+            className={itemClassName}
             onClick={() => onFolderClick(folder.id)}
             title={`Open ${folder.name}`}
             type="button"
@@ -2114,7 +2091,7 @@ function CollapsedRail({
   return (
     <button
       aria-label={`Expand ${label}`}
-      className="flex min-h-40 w-full flex-col items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-2 py-3 text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-100"
+      className="flex min-h-40 w-full flex-col items-center gap-3 px-2 py-3 text-slate-600 transition hover:text-slate-950 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-200 dark:text-slate-300 dark:hover:text-slate-50"
       onClick={onExpand}
       title={`Expand ${label}`}
       type="button"
