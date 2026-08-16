@@ -1,6 +1,8 @@
 import type { FolderNode } from "@/types/data-room";
 
-export const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:3000";
+export const API_URL = (
+  import.meta.env.VITE_API_URL ?? "http://127.0.0.1:3000"
+).replace(/\/$/, "");
 export const TOKEN_KEY = "data-room-token";
 export const THEME_KEY = "data-room-theme";
 

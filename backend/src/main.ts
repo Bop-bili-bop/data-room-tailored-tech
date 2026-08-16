@@ -1,16 +1,28 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
+  const configuredCorsOrigins = (
+    configService.get<string>('CORS_ORIGINS') ?? ''
+  )
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const localOrigins =
+    configService.get<string>('NODE_ENV') === 'production'
+      ? []
+      : ['http://localhost:5173', 'http://127.0.0.1:5173'];
   const frontendOrigins = Array.from(
     new Set([
-      process.env.FRONTEND_URL,
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
+      configService.get<string>('FRONTEND_URL'),
+      ...configuredCorsOrigins,
+      ...localOrigins,
     ]),
   ).filter((origin): origin is string => Boolean(origin));
 
@@ -54,7 +66,7 @@ async function bootstrap() {
     },
   });
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(configService.get<number>('PORT') ?? 3000, '0.0.0.0');
 }
 
 void bootstrap();

@@ -5,9 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { rm } from 'node:fs/promises';
-import { join } from 'node:path';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { StoragePathService } from '../storage/storage-path.service';
 import { Prisma, type DataRoomMember } from '../generated/prisma/client';
 
 import { CreateDataRoomDto } from './dto/create-data-room.dto';
@@ -17,7 +17,10 @@ import { UpdateDataRoomMemberDto } from './dto/update-data-room-member.dto';
 
 @Injectable()
 export class DataRoomsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storagePath: StoragePathService,
+  ) {}
 
   create(userId: string, dto: CreateDataRoomDto) {
     return this.prisma.dataRoom.create({
@@ -358,7 +361,7 @@ export class DataRoomsService {
   }
 
   private async removeDataRoomUploads(dataRoomId: string): Promise<void> {
-    await rm(join(process.cwd(), 'uploads', 'data-rooms', dataRoomId), {
+    await rm(this.storagePath.resolve('data-rooms', dataRoomId), {
       recursive: true,
       force: true,
     });

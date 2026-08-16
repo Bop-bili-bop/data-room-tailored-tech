@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { access } from 'node:fs/promises';
-import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -19,6 +18,7 @@ import type {
   Share,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StoragePathService } from '../storage/storage-path.service';
 import {
   CreateShareDto,
   ShareModeDto,
@@ -46,7 +46,10 @@ type SharedPayload = {
 
 @Injectable()
 export class SharesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storagePath: StoragePathService,
+  ) {}
 
   async create(dataRoomId: string, userId: string, dto: CreateShareDto) {
     await this.ensureOwner(dataRoomId, userId);
@@ -502,6 +505,6 @@ export class SharesService {
   }
 
   private getUploadPath(storageKey: string): string {
-    return join(process.cwd(), 'uploads', storageKey);
+    return this.storagePath.resolve(storageKey);
   }
 }

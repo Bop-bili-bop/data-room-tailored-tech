@@ -4,9 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { rm } from 'node:fs/promises';
-import { join } from 'node:path';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { StoragePathService } from '../storage/storage-path.service';
 import type {
   DataRoomMember,
   File as PrismaFile,
@@ -26,7 +26,10 @@ type FolderTreeNode = FolderWithFiles & {
 
 @Injectable()
 export class FoldersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storagePath: StoragePathService,
+  ) {}
 
   async create(dataRoomId: string, userId: string, dto: CreateFolderDto) {
     const member = await this.getDataRoomMember(dataRoomId, userId);
@@ -362,14 +365,7 @@ export class FoldersService {
     folderId: string,
   ): Promise<void> {
     await rm(
-      join(
-        process.cwd(),
-        'uploads',
-        'data-rooms',
-        dataRoomId,
-        'folders',
-        folderId,
-      ),
+      this.storagePath.resolve('data-rooms', dataRoomId, 'folders', folderId),
       {
         recursive: true,
         force: true,

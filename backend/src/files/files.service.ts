@@ -14,6 +14,7 @@ import type {
   File as PrismaFile,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StoragePathService } from '../storage/storage-path.service';
 import { UpdateFileDto } from './dto/update-file.dto';
 
 const ALLOWED_FILE_TYPES = new Map<string, readonly string[]>([
@@ -32,7 +33,10 @@ type DownloadableFile = {
 
 @Injectable()
 export class FilesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storagePath: StoragePathService,
+  ) {}
 
   async create(
     dataRoomId: string,
@@ -61,17 +65,10 @@ export class FilesService {
       folderId,
       safeFileName,
     );
-    const uploadPath = join(process.cwd(), 'uploads', storageKey);
+    const uploadPath = this.storagePath.resolve(storageKey);
 
     await mkdir(
-      join(
-        process.cwd(),
-        'uploads',
-        'data-rooms',
-        dataRoomId,
-        'folders',
-        folderId,
-      ),
+      this.storagePath.resolve('data-rooms', dataRoomId, 'folders', folderId),
       {
         recursive: true,
       },
@@ -302,7 +299,7 @@ export class FilesService {
   }
 
   private getUploadPath(storageKey: string): string {
-    return join(process.cwd(), 'uploads', storageKey);
+    return this.storagePath.resolve(storageKey);
   }
 
   private createStoredFileName(originalName: string): string {
