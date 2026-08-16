@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
 
@@ -22,6 +23,35 @@ async function bootstrap() {
 
   app.enableCors({
     origin: frontendOrigins,
+  });
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Data Room API')
+    .setDescription(
+      'API for authentication, virtual data rooms, folders, files, members, and share links.',
+    )
+    .setVersion('1.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description:
+          'Paste the access token returned by login or registration.',
+      },
+      'access-token',
+    )
+    .build();
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+
+  SwaggerModule.setup('api/docs', app, swaggerDocument, {
+    jsonDocumentUrl: 'api/docs-json',
+    customSiteTitle: 'Data Room API docs',
+    swaggerOptions: {
+      persistAuthorization: true,
+      displayRequestDuration: true,
+      filter: true,
+    },
   });
 
   await app.listen(process.env.PORT ?? 3000);

@@ -17,6 +17,15 @@ import {
 } from '@nestjs/common';
 
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiParam,
+  ApiProduces,
+  ApiTags,
+} from '@nestjs/swagger';
 import { createReadStream } from 'node:fs';
 import type { Express, Request, Response } from 'express';
 
@@ -32,6 +41,8 @@ type AuthenticatedRequest = Request & {
   };
 };
 
+@ApiTags('Files')
+@ApiBearerAuth('access-token')
 @Controller('data-rooms')
 @UseGuards(JwtAuthGuard)
 export class FilesController {
@@ -39,6 +50,23 @@ export class FilesController {
 
   @Post(':dataRoomId/folders/:folderId/files')
   @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload a PDF or image to a folder' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'PDF or supported image file',
+        },
+      },
+    },
+  })
+  @ApiParam({ name: 'dataRoomId', description: 'Data room ID', format: 'uuid' })
+  @ApiParam({ name: 'folderId', description: 'Folder ID', format: 'uuid' })
   upload(
     @Param('dataRoomId') dataRoomId: string,
     @Param('folderId') folderId: string,
@@ -54,6 +82,24 @@ export class FilesController {
 
   @Post(':dataRoomId/folders/:folderId/files/bulk')
   @UseInterceptors(FilesInterceptor('files', 20))
+  @ApiOperation({ summary: 'Upload up to 20 PDFs or images to a folder' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['files'],
+      properties: {
+        files: {
+          type: 'array',
+          maxItems: 20,
+          items: { type: 'string', format: 'binary' },
+          description: 'PDF and supported image files',
+        },
+      },
+    },
+  })
+  @ApiParam({ name: 'dataRoomId', description: 'Data room ID', format: 'uuid' })
+  @ApiParam({ name: 'folderId', description: 'Folder ID', format: 'uuid' })
   uploadMany(
     @Param('dataRoomId') dataRoomId: string,
     @Param('folderId') folderId: string,
@@ -73,6 +119,9 @@ export class FilesController {
   }
 
   @Get(':dataRoomId/folders/:folderId/files')
+  @ApiOperation({ summary: 'List files in a folder' })
+  @ApiParam({ name: 'dataRoomId', description: 'Data room ID', format: 'uuid' })
+  @ApiParam({ name: 'folderId', description: 'Folder ID', format: 'uuid' })
   findAll(
     @Param('dataRoomId') dataRoomId: string,
     @Param('folderId') folderId: string,
@@ -82,6 +131,10 @@ export class FilesController {
   }
 
   @Get(':dataRoomId/files/:fileId/download')
+  @ApiOperation({ summary: 'Download the original file' })
+  @ApiProduces('application/octet-stream')
+  @ApiParam({ name: 'dataRoomId', description: 'Data room ID', format: 'uuid' })
+  @ApiParam({ name: 'fileId', description: 'File ID', format: 'uuid' })
   async download(
     @Param('dataRoomId') dataRoomId: string,
     @Param('fileId') fileId: string,
@@ -105,6 +158,10 @@ export class FilesController {
   }
 
   @Get(':dataRoomId/files/:fileId/preview')
+  @ApiOperation({ summary: 'Preview a PDF or image inline' })
+  @ApiProduces('application/pdf', 'image/jpeg', 'image/png', 'image/webp')
+  @ApiParam({ name: 'dataRoomId', description: 'Data room ID', format: 'uuid' })
+  @ApiParam({ name: 'fileId', description: 'File ID', format: 'uuid' })
   async preview(
     @Param('dataRoomId') dataRoomId: string,
     @Param('fileId') fileId: string,
@@ -128,6 +185,9 @@ export class FilesController {
   }
 
   @Patch(':dataRoomId/files/:fileId')
+  @ApiOperation({ summary: 'Rename or move a file' })
+  @ApiParam({ name: 'dataRoomId', description: 'Data room ID', format: 'uuid' })
+  @ApiParam({ name: 'fileId', description: 'File ID', format: 'uuid' })
   update(
     @Param('dataRoomId') dataRoomId: string,
     @Param('fileId') fileId: string,
@@ -138,6 +198,9 @@ export class FilesController {
   }
 
   @Delete(':dataRoomId/files/:fileId')
+  @ApiOperation({ summary: 'Delete a file' })
+  @ApiParam({ name: 'dataRoomId', description: 'Data room ID', format: 'uuid' })
+  @ApiParam({ name: 'fileId', description: 'File ID', format: 'uuid' })
   remove(
     @Param('dataRoomId') dataRoomId: string,
     @Param('fileId') fileId: string,

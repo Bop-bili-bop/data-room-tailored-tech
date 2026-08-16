@@ -8,6 +8,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  ApiBearerAuth,
+  ApiFoundResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 
 import { AuthService } from './auth.service';
@@ -21,6 +28,7 @@ type GoogleAuthenticatedRequest = Request & {
   user: GoogleOAuthProfile;
 };
 
+@ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -29,29 +37,38 @@ export class AuthController {
   ) {}
 
   @Post('register')
+  @ApiOperation({ summary: 'Create an account and return an access token' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
   @Post('login')
+  @ApiOperation({ summary: 'Sign in with email and password' })
+  @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Return the authenticated JWT payload' })
   me(@Req() req: Request) {
     return req.user;
   }
 
   @Get('google')
   @UseGuards(GoogleOAuthGuard)
+  @ApiOperation({ summary: 'Start Google OAuth 2.0 sign-in' })
+  @ApiFoundResponse({ description: 'Redirects to Google authorization' })
   googleAuth() {
     return;
   }
 
   @Get('google/callback')
   @UseGuards(GoogleOAuthGuard)
+  @ApiOperation({ summary: 'Handle the Google OAuth 2.0 callback' })
+  @ApiFoundResponse({ description: 'Redirects to the frontend OAuth callback' })
   async googleCallback(
     @Req() req: GoogleAuthenticatedRequest,
     @Res() response: Response,

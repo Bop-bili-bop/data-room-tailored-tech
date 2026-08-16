@@ -9,6 +9,12 @@ import {
   Delete,
   Patch,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -24,12 +30,16 @@ type AuthenticatedRequest = Request & {
   };
 };
 
+@ApiTags('Folders')
+@ApiBearerAuth('access-token')
+@ApiParam({ name: 'dataRoomId', description: 'Data room ID', format: 'uuid' })
 @Controller('data-rooms/:dataRoomId/folders')
 @UseGuards(JwtAuthGuard)
 export class FoldersController {
   constructor(private readonly foldersService: FoldersService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a folder' })
   create(
     @Param('dataRoomId') dataRoomId: string,
     @Req() req: AuthenticatedRequest,
@@ -39,6 +49,7 @@ export class FoldersController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'List all folders in a data room' })
   findAll(
     @Param('dataRoomId') dataRoomId: string,
     @Req() req: AuthenticatedRequest,
@@ -47,6 +58,7 @@ export class FoldersController {
   }
 
   @Get('tree')
+  @ApiOperation({ summary: 'Get the nested folder tree' })
   findTree(
     @Param('dataRoomId') dataRoomId: string,
     @Req() req: AuthenticatedRequest,
@@ -55,6 +67,10 @@ export class FoldersController {
   }
 
   @Get(':id/delete-impact')
+  @ApiOperation({
+    summary: 'Preview the impact of recursively deleting a folder',
+  })
+  @ApiParam({ name: 'id', description: 'Folder ID', format: 'uuid' })
   getDeleteImpact(
     @Param('dataRoomId') dataRoomId: string,
     @Param('id') id: string,
@@ -64,6 +80,8 @@ export class FoldersController {
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Rename a folder' })
+  @ApiParam({ name: 'id', description: 'Folder ID', format: 'uuid' })
   update(
     @Param('dataRoomId') dataRoomId: string,
     @Param('id') id: string,
@@ -74,6 +92,8 @@ export class FoldersController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete a folder and its contents' })
+  @ApiParam({ name: 'id', description: 'Folder ID', format: 'uuid' })
   remove(
     @Param('dataRoomId') dataRoomId: string,
     @Param('id') id: string,
